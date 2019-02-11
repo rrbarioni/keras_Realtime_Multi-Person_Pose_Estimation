@@ -6,7 +6,7 @@ import pandas
 from functools import partial
 
 import keras.backend as K
-from keras.applications.vgg19 import VGG19
+from keras.applications.resnet50 import ResNet50
 from keras.callbacks import LearningRateScheduler, ModelCheckpoint, CSVLogger, TensorBoard
 from keras.layers.convolutional import Conv2D
 
@@ -14,7 +14,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from model.model_simple_baselines import get_training_model
 from training.optimizers import MultiSGD
-from training.dataset import get_dataflow, batch_dataflow
+from training.dataset_simple_baselines import get_dataflow, batch_dataflow
 from training.dataflow import COCODataPaths
 
 
@@ -31,17 +31,11 @@ weights_best_file = "weights.best.h5"
 training_log = "training.csv"
 logs_dir = "./logs"
 
-from_vgg = {
-    'conv1_1': 'block1_conv1',
-    'conv1_2': 'block1_conv2',
-    'conv2_1': 'block2_conv1',
-    'conv2_2': 'block2_conv2',
-    'conv3_1': 'block3_conv1',
-    'conv3_2': 'block3_conv2',
-    'conv3_3': 'block3_conv3',
-    'conv3_4': 'block3_conv4',
-    'conv4_1': 'block4_conv1',
-    'conv4_2': 'block4_conv2'
+from_resnet = {
+    'conv1_pad': 'conv1_pad',
+    'conv1': 'conv1',
+    'bn_conv1': 'bn_conv1',
+    'pool1_pad': 'pool1_pad'
 }
 
 
@@ -58,12 +52,12 @@ def get_last_epoch():
 def restore_weights(weights_best_file, model):
     """
     Restores weights from the checkpoint file if exists or
-    preloads the first layers with VGG19 weights
+    preloads the first layers with ResNet50 weights
 
     :param weights_best_file:
     :return: epoch number to use to continue training. last epoch + 1 or 0
     """
-    # load previous weights or vgg19 if this is the first run
+    # load previous weights or resnet50 if this is the first run
     if os.path.exists(weights_best_file):
         print("Loading the best weights...")
 
@@ -71,15 +65,15 @@ def restore_weights(weights_best_file, model):
 
         return get_last_epoch() + 1
     else:
-        print("Loading vgg19 weights...")
+        print("Loading resnet50 weights...")
 
-        vgg_model = VGG19(include_top=False, weights='imagenet')
+        resnet_model = ResNet50(include_top=False, weights='imagenet')
 
         for layer in model.layers:
-            if layer.name in from_vgg:
-                vgg_layer_name = from_vgg[layer.name]
-                layer.set_weights(vgg_model.get_layer(vgg_layer_name).get_weights())
-                print("Loaded VGG19 layer: " + vgg_layer_name)
+            if layer.name in from_resnet:
+                resnet_layer_name = from_resnet[layer.name]
+                layer.set_weights(resnet_model.get_layer(resnet_layer_name).get_weights())
+                print("Loaded ResNet50 layer: " + resnet_layer_name)
 
         return 0
 
@@ -130,18 +124,8 @@ def get_loss_funcs():
         return K.sum(K.square(x - y)) / batch_size / 2
 
     losses = {}
-    losses["weight_stage1_L1"] = _eucl_loss
-    losses["weight_stage1_L2"] = _eucl_loss
-    losses["weight_stage2_L1"] = _eucl_loss
-    losses["weight_stage2_L2"] = _eucl_loss
-    losses["weight_stage3_L1"] = _eucl_loss
-    losses["weight_stage3_L2"] = _eucl_loss
-    losses["weight_stage4_L1"] = _eucl_loss
-    losses["weight_stage4_L2"] = _eucl_loss
-    losses["weight_stage5_L1"] = _eucl_loss
-    losses["weight_stage5_L2"] = _eucl_loss
-    losses["weight_stage6_L1"] = _eucl_loss
-    losses["weight_stage6_L2"] = _eucl_loss
+    losses["weight_L1"] = _eucl_loss
+    losses["weight_L2"] = _eucl_loss
 
     return losses
 
@@ -232,6 +216,8 @@ if __name__ == '__main__':
 
     multisgd = MultiSGD(lr=base_lr, momentum=momentum, decay=0.0,
                         nesterov=False, lr_mult=lr_multipliers)
+
+    model.summary()
 
     # start training
 

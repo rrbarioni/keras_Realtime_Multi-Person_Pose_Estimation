@@ -5,18 +5,19 @@ from keras.layers import BatchNormalization, add
 from keras.layers import ZeroPadding2D
 from keras.layers.convolutional import Conv2D
 from keras.layers.convolutional import Conv2DTranspose
-from keras.layers.pooling import MaxPooling2D
+from keras.layers.pooling import MaxPooling2D, AveragePooling2D
 from keras.layers.merge import Multiply
 from keras.regularizers import l2
 from keras.initializers import random_normal,constant
 
 
-def apply_mask(x, mask1, mask2, num_p, stage, branch):
-    w_name = "weight_stage%d_L%d" % (stage, branch)
+def apply_mask(x, mask1, mask2, num_p, branch):
+    w_name = "weight_L%d" % branch
     if num_p == 38:
+        mask1 = AveragePooling2D((4, 4), strides=(4, 4))(mask1)
         w = Multiply(name=w_name)([x, mask1]) # vec_weight
-
     else:
+        mask2 = AveragePooling2D((4, 4), strides=(4, 4))(mask2)
         w = Multiply(name=w_name)([x, mask2])  # vec_heat
     return w
 
@@ -27,33 +28,33 @@ def resnet50_block(x, weight_decay):
         conv_name_base = 'res' + str(stage) + block + '_branch'
         bn_name_base = 'bn' + str(stage) + block + '_branch'
 
-        x = Conv2D(filters1, (1, 1), strides=strides,
+        shortcut_1 = Conv2D(filters1, (1, 1), strides=strides,
             kernel_initializer='he_normal',
             name=conv_name_base + '2a')(x)
-        x = BatchNormalization(axis=3,
-            name=bn_name_base + '2a')(x)
-        x = Activation('relu')(x)
+        shortcut_1 = BatchNormalization(axis=3,
+            name=bn_name_base + '2a')(shortcut_1)
+        shortcut_1 = Activation('relu')(shortcut_1)
 
-        x = Conv2D(filters2, ks, padding='same',
+        shortcut_1 = Conv2D(filters2, ks, padding='same',
             kernel_initializer='he_normal',
-            name=conv_name_base + '2b')(x)
-        x = BatchNormalization(axis=3,
-            name=bn_name_base + '2b')(x)
-        x = Activation('relu')(x)
+            name=conv_name_base + '2b')(shortcut_1)
+        shortcut_1 = BatchNormalization(axis=3,
+            name=bn_name_base + '2b')(shortcut_1)
+        shortcut_1 = Activation('relu')(shortcut_1)
 
-        x = Conv2D(filters3, (1, 1),
+        shortcut_1 = Conv2D(filters3, (1, 1),
             kernel_initializer='he_normal',
-            name=conv_name_base + '2c')(x)
-        x = BatchNormalization(axis=3,
-            name=bn_name_base + '2c')(x)
+            name=conv_name_base + '2c')(shortcut_1)
+        shortcut_1 = BatchNormalization(axis=3,
+            name=bn_name_base + '2c')(shortcut_1)
 
-        shortcut = Conv2D(filters3, (1, 1), strides=strides,
+        shortcut_2 = Conv2D(filters3, (1, 1), strides=strides,
             kernel_initializer='he_normal',
             name=conv_name_base + '1')(x)
-        shortcut = BatchNormalization(axis=3,
-            name=bn_name_base + '1')(shortcut)
+        shortcut_2 = BatchNormalization(axis=3,
+            name=bn_name_base + '1')(shortcut_2)
 
-        x = add([x, shortcut])
+        x = add([shortcut_1, shortcut_2])
         x = Activation('relu')(x)
         return x
 
@@ -69,7 +70,7 @@ def resnet50_block(x, weight_decay):
             name=bn_name_base + '2a')(shortcut)
         shortcut = Activation('relu')(shortcut)
 
-        shortcut = Conv2D(filters2, kernel_size,
+        shortcut = Conv2D(filters2, ks,
             padding='same', kernel_initializer='he_normal',
             name=conv_name_base + '2b')(shortcut)
         shortcut = BatchNormalization(axis=3,
@@ -79,7 +80,7 @@ def resnet50_block(x, weight_decay):
         shortcut = Conv2D(filters3, (1, 1),
             kernel_initializer='he_normal',
             name=conv_name_base + '2c')(shortcut)
-        shortcut = BatchNormalization(axis=bn_axis,
+        shortcut = BatchNormalization(axis=3,
             name=bn_name_base + '2c')(shortcut)
 
         x = add([shortcut, x])
@@ -88,7 +89,7 @@ def resnet50_block(x, weight_decay):
         return x
 
     #Block 1
-    x = ZeroPadding2D((3, 3), name='conv1_pad')
+    x = ZeroPadding2D((3, 3), name='conv1_pad')(x)
     x = Conv2D(64, (7, 7), strides=(2, 2),
         padding='valid', kernel_initializer='he_normal',
         name='conv1')(x)
@@ -129,7 +130,8 @@ def deconv_block(x, nf, ks, strides, weight_decay):
     kernel_reg = l2(weight_decay[0]) if weight_decay else None
     bias_reg = l2(weight_decay[1]) if weight_decay else None
     
-    x = Conv2DTranspose(nf, (ks, ks), strides,
+    x = Conv2DTranspose(nf, (ks, ks),
+        strides=strides,
         padding='same',
         activation='relu',
         kernel_regularizer=kernel_reg,
@@ -140,28 +142,30 @@ def deconv_block(x, nf, ks, strides, weight_decay):
     return x
 
 
-def lastconv_block(x, nf, ks, weight_decay):
+def lastconv_block(x, nf, weight_decay):
     kernel_reg = l2(weight_decay[0]) if weight_decay else None
     bias_reg = l2(weight_decay[1]) if weight_decay else None
 
-    x = Conv2D(nf, (ks, ks),
+    x = Conv2D(nf, (1, 1),
         padding='same',
         kernel_regularizer=kernel_reg,
         bias_regularizer=bias_reg,
         kernel_initializer=random_normal(stddev=0.01),
-        bias_initializer=constant(0.0))
+        bias_initializer=constant(0.0))(x)
 
     return x
     
 
 def get_training_model(weight_decay):
-    deconv_blocks = 3
     np_branch1 = 38
     np_branch2 = 19
 
-    img_input_shape = (None, None, 3)
-    vec_input_shape = (None, None, 38)
-    heat_input_shape = (None, None, 19)
+    # img_input_shape = (None, None, 3)
+    # vec_input_shape = (None, None, 38)
+    # heat_input_shape = (None, None, 19)
+    img_input_shape = (368, 368, 3)
+    vec_input_shape = (368, 368, 38)
+    heat_input_shape = (368, 368, 19)
 
     inputs = []
     outputs = []
@@ -176,18 +180,19 @@ def get_training_model(weight_decay):
 
     img_normalized = Lambda(lambda x: x / 256 - 0.5)(img_input) # [-0.5, 0.5]
 
-    resnet50_out = resnet50_block(img_normalized, weight_decay)
+    resnet50_out = resnet50_block(img_normalized, (weight_decay, 0))
 
-    for i in range(deconv_blocks):
-        x = deconv_block(x, 256, 4, (2, 2), weight_decay)
+    x = resnet50_out
+    x = deconv_block(x, 256, 4, (2, 2), (weight_decay, 0))
+    x = deconv_block(x, 256, 4, (2, 2), (weight_decay, 0))
+    x = Lambda(lambda x: x[:,1:-1,1:-1,:])(x)
+    x = deconv_block(x, 256, 4, (2, 2), (weight_decay, 0))
 
-    branch1_out = lastconv_block(x, np_branch1, 1, weight_decay)
-    branch2_out = lastconv_block(x, np_branch2, 1, weight_decay)
+    branch1_out = lastconv_block(x, np_branch1, (weight_decay, 0))
+    w1 = apply_mask(branch1_out, vec_weight_input, heat_weight_input, np_branch1, 1)
 
-    w1 = apply_mask(branch1_out, vec_weight_input, heat_weight_input, np_branch1, 1, 1)
-    w2 = apply_mask(branch2_out, vec_weight_input, heat_weight_input, np_branch2, 1, 2)
-
-    # x = Concatenate()([branch1_out, branch2_out, resnet50_out])
+    branch2_out = lastconv_block(x, np_branch2, (weight_decay, 0))
+    w2 = apply_mask(branch2_out, vec_weight_input, heat_weight_input, np_branch2, 2)
 
     outputs.append(w1)
     outputs.append(w2)
@@ -198,25 +203,26 @@ def get_training_model(weight_decay):
 
 
 def get_testing_model():
-    deconv_blocks = 3
     np_branch1 = 38
     np_branch2 = 19
 
-    img_input_shape = (None, None, 3)
+    # img_input_shape = (None, None, 3)
+    img_input_shape = (368, 368, 3)
 
     img_input = Input(shape=img_input_shape)
 
     img_normalized = Lambda(lambda x: x / 256 - 0.5)(img_input) # [-0.5, 0.5]
 
-    resnet50_out = resnet50_block(img_normalized, weight_decay)
+    resnet50_out = resnet50_block(img_normalized, None)
 
-    for i in range(deconv_blocks):
-        x = deconv_block(x, 256, 4, (2, 2), weight_decay)
+    x = resnet50_out
+    x = deconv_block(x, 256, 4, (2, 2), None)
+    x = deconv_block(x, 256, 4, (2, 2), None)
+    x = Lambda(lambda x: x[:,1:-1,1:-1,:])(x)
+    x = deconv_block(x, 256, 4, (2, 2), None)
 
-    branch1_out = lastconv_block(x, np_branch1, 1, weight_decay)
-    branch2_out = lastconv_block(x, np_branch2, 1, weight_decay)
-
-    # x = Concatenate()([branch1_out, branch2_out, stage0_out])
+    branch1_out = lastconv_block(x, np_branch1, None)
+    branch2_out = lastconv_block(x, np_branch2, None)
 
     model = Model(inputs=[img_input], outputs=[branch1_out, branch2_out])
 
