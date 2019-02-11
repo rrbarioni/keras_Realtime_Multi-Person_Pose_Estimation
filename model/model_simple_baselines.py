@@ -4,13 +4,11 @@ from keras.layers import Activation, Input, Lambda
 from keras.layers import BatchNormalization, add
 from keras.layers import ZeroPadding2D
 from keras.layers.convolutional import Conv2D
+from keras.layers.convolutional import Conv2DTranspose
 from keras.layers.pooling import MaxPooling2D
 from keras.layers.merge import Multiply
 from keras.regularizers import l2
 from keras.initializers import random_normal,constant
-
-
-def relu(x): return Activation('relu')(x)
 
 
 def apply_mask(x, mask1, mask2, num_p, stage, branch):
@@ -24,7 +22,7 @@ def apply_mask(x, mask1, mask2, num_p, stage, branch):
 
 
 def resnet50_block(x, weight_decay):
-    def conv_block(x, ks, nf, stage, block, strides=(2, 2)):
+    def conv_block(x, nf, ks, stage, block, strides=(2, 2)):
         filters1, filters2, filters3 = nf
         conv_name_base = 'res' + str(stage) + block + '_branch'
         bn_name_base = 'bn' + str(stage) + block + '_branch'
@@ -59,7 +57,7 @@ def resnet50_block(x, weight_decay):
         x = Activation('relu')(x)
         return x
 
-    def identity_block(x, ks, nf, stage, block):
+    def identity_block(x, nf, ks, stage, block):
         filters1, filters2, filters3 = nf
         conv_name_base = 'res' + str(stage) + block + '_branch'
         bn_name_base = 'bn' + str(stage) + block + '_branch'
@@ -100,35 +98,64 @@ def resnet50_block(x, weight_decay):
     x = MaxPooling2D((3, 3), strides=(2, 2))(x)
 
     #Block 2
-    x = conv_block(x, 3, [64, 64, 256], stage=2, block='a',
+    x = conv_block(x, [64, 64, 256], 3, stage=2, block='a',
         strides=(1, 1))
-    x = identity_block(x, 3, [64, 64, 256], stage=2, block='b')
-    x = identity_block(x, 3, [64, 64, 256], stage=2, block='c')
+    x = identity_block(x, [64, 64, 256], 3, stage=2, block='b')
+    x = identity_block(x, [64, 64, 256], 3, stage=2, block='c')
 
     #Block 3
-    x = conv_block(x, 3, [128, 128, 512], stage=3, block='a')
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='b')
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='c')
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='d')
+    x = conv_block(x, [128, 128, 512], 3, stage=3, block='a')
+    x = identity_block(x, [128, 128, 512], 3, stage=3, block='b')
+    x = identity_block(x, [128, 128, 512], 3, stage=3, block='c')
+    x = identity_block(x, [128, 128, 512], 3, stage=3, block='d')
 
     #Block 4
-    x = conv_block(x, 3, [256, 256, 1024], stage=4, block='a')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='b')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='c')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='d')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='e')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='f')
+    x = conv_block(x, [256, 256, 1024], 3, stage=4, block='a')
+    x = identity_block(x, [256, 256, 1024], 3, stage=4, block='b')
+    x = identity_block(x, [256, 256, 1024], 3, stage=4, block='c')
+    x = identity_block(x, [256, 256, 1024], 3, stage=4, block='d')
+    x = identity_block(x, [256, 256, 1024], 3, stage=4, block='e')
+    x = identity_block(x, [256, 256, 1024], 3, stage=4, block='f')
 
     #Block 5
-    x = conv_block(x, 3, [512, 512, 2048], stage=5, block='a')
-    x = identity_block(x, 3, [512, 512, 2048], stage=5, block='b')
-    x = identity_block(x, 3, [512, 512, 2048], stage=5, block='c')
+    x = conv_block(x, [512, 512, 2048], 3, stage=5, block='a')
+    x = identity_block(x, [512, 512, 2048], 3, stage=5, block='b')
+    x = identity_block(x, [512, 512, 2048], 3, stage=5, block='c')
 
     return x
 
 
+def deconv_block(x, nf, ks, strides, weight_decay):
+    kernel_reg = l2(weight_decay[0]) if weight_decay else None
+    bias_reg = l2(weight_decay[1]) if weight_decay else None
+    
+    x = Conv2DTranspose(nf, (ks, ks), strides,
+        padding='same',
+        activation='relu',
+        kernel_regularizer=kernel_reg,
+        bias_regularizer=bias_reg,
+        kernel_initializer=random_normal(stddev=0.01),
+        bias_initializer=constant(0.0))(x)
+
+    return x
+
+
+def lastconv_block(x, nf, ks, weight_decay):
+    kernel_reg = l2(weight_decay[0]) if weight_decay else None
+    bias_reg = l2(weight_decay[1]) if weight_decay else None
+
+    x = Conv2D(nf, (ks, ks),
+        padding='same',
+        kernel_regularizer=kernel_reg,
+        bias_regularizer=bias_reg,
+        kernel_initializer=random_normal(stddev=0.01),
+        bias_initializer=constant(0.0))
+
+    return x
+    
+
 def get_training_model(weight_decay):
-    stages = 6
+    deconv_blocks = 3
     np_branch1 = 38
     np_branch2 = 19
 
@@ -151,14 +178,46 @@ def get_training_model(weight_decay):
 
     resnet50_out = resnet50_block(img_normalized, weight_decay)
 
+    for i in range(deconv_blocks):
+        x = deconv_block(x, 256, 4, (2, 2), weight_decay)
+
+    branch1_out = lastconv_block(x, np_branch1, 1, weight_decay)
+    branch2_out = lastconv_block(x, np_branch2, 1, weight_decay)
+
+    w1 = apply_mask(branch1_out, vec_weight_input, heat_weight_input, np_branch1, 1, 1)
+    w2 = apply_mask(branch2_out, vec_weight_input, heat_weight_input, np_branch2, 1, 2)
+
+    # x = Concatenate()([branch1_out, branch2_out, resnet50_out])
+
+    outputs.append(w1)
+    outputs.append(w2)
+
+    model = Model(inputs=inputs, outputs=outputs)
+
     return model
 
 
 def get_testing_model():
-    stages = 6
+    deconv_blocks = 3
     np_branch1 = 38
     np_branch2 = 19
 
     img_input_shape = (None, None, 3)
+
+    img_input = Input(shape=img_input_shape)
+
+    img_normalized = Lambda(lambda x: x / 256 - 0.5)(img_input) # [-0.5, 0.5]
+
+    resnet50_out = resnet50_block(img_normalized, weight_decay)
+
+    for i in range(deconv_blocks):
+        x = deconv_block(x, 256, 4, (2, 2), weight_decay)
+
+    branch1_out = lastconv_block(x, np_branch1, 1, weight_decay)
+    branch2_out = lastconv_block(x, np_branch2, 1, weight_decay)
+
+    # x = Concatenate()([branch1_out, branch2_out, stage0_out])
+
+    model = Model(inputs=[img_input], outputs=[branch1_out, branch2_out])
 
     return model

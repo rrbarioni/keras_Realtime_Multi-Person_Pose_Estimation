@@ -20,11 +20,13 @@ def conv(x, nf, ks, name, weight_decay):
                bias_regularizer=bias_reg,
                kernel_initializer=random_normal(stddev=0.01),
                bias_initializer=constant(0.0))(x)
+
     return x
 
 
 def pooling(x, ks, st, name):
     x = MaxPooling2D((ks, ks), strides=(st, st), name=name)(x)
+    
     return x
 
 
