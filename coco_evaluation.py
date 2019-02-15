@@ -353,7 +353,7 @@ def per_image_scores(eval_result):
 
     return pd.DataFrame(scores)
 
-model = load_model('training/results/cmu/model.best.h5')
+model = load_model('training/results/cmu/model.h5')
 validation(
     model=model,
     dump_name='cmu',

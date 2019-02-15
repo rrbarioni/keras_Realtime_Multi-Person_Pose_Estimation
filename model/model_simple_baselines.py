@@ -11,13 +11,13 @@ from keras.regularizers import l2
 from keras.initializers import random_normal,constant
 
 
+# mask1 = AveragePooling2D((8, 8), strides=(8, 8))(mask1)
+# mask2 = AveragePooling2D((8, 8), strides=(8, 8))(mask2)
 def apply_mask(x, mask1, mask2, num_p, branch):
     w_name = "weight_L%d" % branch
     if num_p == 38:
-        mask1 = AveragePooling2D((4, 4), strides=(4, 4))(mask1)
         w = Multiply(name=w_name)([x, mask1]) # vec_weight
     else:
-        mask2 = AveragePooling2D((4, 4), strides=(4, 4))(mask2)
         w = Multiply(name=w_name)([x, mask2])  # vec_heat
     return w
 
@@ -160,12 +160,12 @@ def get_training_model(weight_decay):
     np_branch1 = 38
     np_branch2 = 19
 
-    # img_input_shape = (None, None, 3)
-    # vec_input_shape = (None, None, 38)
-    # heat_input_shape = (None, None, 19)
-    img_input_shape = (368, 368, 3)
-    vec_input_shape = (368, 368, 38)
-    heat_input_shape = (368, 368, 19)
+    img_input_shape = (None, None, 3)
+    vec_input_shape = (None, None, 38)
+    heat_input_shape = (None, None, 19)
+    # img_input_shape = (368, 368, 3)
+    # vec_input_shape = (368, 368, 38)
+    # heat_input_shape = (368, 368, 19)
 
     inputs = []
     outputs = []
@@ -186,7 +186,7 @@ def get_training_model(weight_decay):
     x = deconv_block(x, 256, 4, (2, 2), (weight_decay, 0))
     x = deconv_block(x, 256, 4, (2, 2), (weight_decay, 0))
     x = Lambda(lambda x: x[:,1:-1,1:-1,:])(x)
-    x = deconv_block(x, 256, 4, (2, 2), (weight_decay, 0))
+    # x = deconv_block(x, 256, 4, (2, 2), (weight_decay, 0))
 
     branch1_out = lastconv_block(x, np_branch1, (weight_decay, 0))
     w1 = apply_mask(branch1_out, vec_weight_input, heat_weight_input, np_branch1, 1)
@@ -219,7 +219,7 @@ def get_testing_model():
     x = deconv_block(x, 256, 4, (2, 2), None)
     x = deconv_block(x, 256, 4, (2, 2), None)
     x = Lambda(lambda x: x[:,1:-1,1:-1,:])(x)
-    x = deconv_block(x, 256, 4, (2, 2), None)
+    # x = deconv_block(x, 256, 4, (2, 2), None)
 
     branch1_out = lastconv_block(x, np_branch1, None)
     branch2_out = lastconv_block(x, np_branch2, None)

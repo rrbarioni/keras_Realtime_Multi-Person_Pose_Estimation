@@ -7,6 +7,7 @@ from pycocotools.coco import maskUtils
 from tensorpack.dataflow.common import BatchData, MapData
 from tensorpack.dataflow.common import TestDataSpeed
 from tensorpack.dataflow.parallel import PrefetchDataZMQ
+from tensorpack.dataflow.parallel import MultiProcessPrefetchData
 
 from training.augmentors import ScaleAug, RotateAug, CropAug, FlipAug, \
     joints_to_point8, point8_to_joints, AugImgMetadata

@@ -2,7 +2,7 @@ from keras.models import Model
 from keras.layers.merge import Concatenate
 from keras.layers import Activation, Input, Lambda
 from keras.layers.convolutional import Conv2D
-from keras.layers.pooling import MaxPooling2D
+from keras.layers.pooling import MaxPooling2D, AveragePooling2D
 from keras.layers.merge import Multiply
 from keras.regularizers import l2
 from keras.initializers import random_normal,constant
@@ -105,11 +105,12 @@ def stageT_block(x, num_p, stage, branch, weight_decay):
     return x
 
 
+# mask1 = AveragePooling2D((8, 8), strides=(8, 8))(mask1)
+# mask2 = AveragePooling2D((8, 8), strides=(8, 8))(mask2)
 def apply_mask(x, mask1, mask2, num_p, stage, branch):
     w_name = "weight_stage%d_L%d" % (stage, branch)
     if num_p == 38:
         w = Multiply(name=w_name)([x, mask1]) # vec_weight
-
     else:
         w = Multiply(name=w_name)([x, mask2])  # vec_heat
     return w
@@ -123,6 +124,9 @@ def get_training_model(weight_decay):
     img_input_shape = (None, None, 3)
     vec_input_shape = (None, None, 38)
     heat_input_shape = (None, None, 19)
+    # img_input_shape = (368, 368, 3)
+    # vec_input_shape = (368, 368, 38)
+    # heat_input_shape = (368, 368, 19)
 
     inputs = []
     outputs = []
@@ -180,6 +184,7 @@ def get_testing_model():
     np_branch2 = 19
 
     img_input_shape = (None, None, 3)
+    # img_input_shape = (368, 368, 3)
 
     img_input = Input(shape=img_input_shape)
 

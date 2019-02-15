@@ -32,16 +32,16 @@ training_log = "training.csv"
 logs_dir = "./logs"
 
 from_vgg = {
-    # 'conv1_1': 'block1_conv1',
-    # 'conv1_2': 'block1_conv2',
-    # 'conv2_1': 'block2_conv1',
-    # 'conv2_2': 'block2_conv2',
-    # 'conv3_1': 'block3_conv1',
-    # 'conv3_2': 'block3_conv2',
-    # 'conv3_3': 'block3_conv3',
-    # 'conv3_4': 'block3_conv4',
-    # 'conv4_1': 'block4_conv1',
-    # 'conv4_2': 'block4_conv2'
+    'conv1_1': 'block1_conv1',
+    'conv1_2': 'block1_conv2',
+    'conv2_1': 'block2_conv1',
+    'conv2_2': 'block2_conv2',
+    'conv3_1': 'block3_conv1',
+    'conv3_2': 'block3_conv2',
+    'conv3_3': 'block3_conv3',
+    'conv3_4': 'block3_conv4',
+    'conv4_1': 'block4_conv1',
+    'conv4_2': 'block4_conv2'
 }
 
 
