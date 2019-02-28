@@ -20,7 +20,7 @@ def get_l1_list_per_layer(model):
             
             l1_list_per_layer.append(
                 np.array(
-                    [sum(sum(abs(lwnp[0][...,i,j])))
+                    [sum(sum(abs(lwnp[0][...,i,j]))) + abs(lwnp[1][j])
                     for i in range(lwnp[0].shape[-2])
                     for j in range(lwnp[0].shape[-1])]
                 )
