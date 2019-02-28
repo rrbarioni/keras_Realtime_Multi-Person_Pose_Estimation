@@ -18,6 +18,10 @@ import util
 
 from config_reader import config_reader
 
+import time
+# os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 params, model_params = config_reader()
 params['scale_search'] = list(params['scale_search'])
 
@@ -239,11 +243,22 @@ dt_gt_mapping = {
 
 def process(input_image, params, model, model_params):
     oriImg = cv2.imread(input_image)  # B,G,R order
-    heatmap_avg, paf_avg = predict(oriImg, model, model_params)
 
+    # t0 = time.time()
+    heatmap_avg, paf_avg = predict(oriImg, model, model_params)
+    # print(' predict took %s' % (time.time() - t0))
+
+    # t0 = time.time()
     all_peaks = find_peaks(heatmap_avg, params['thre1'])
+    # print('find_peaks took %s' % (time.time() - t0))
+
+    # t0 = time.time()
     connection_all, special_k = find_connections(all_peaks, paf_avg, oriImg.shape[0], params['thre2'])
+    # print('find_connections took %s' % (time.time() - t0))
+
+    # t0 = time.time()
     subset, candidate = find_people(connection_all, special_k, all_peaks)
+    # print('find_people took %s' % (time.time() - t0))
 
     keypoints = []
     for s in subset:
@@ -353,9 +368,9 @@ def per_image_scores(eval_result):
 
     return pd.DataFrame(scores)
 
-model = load_model('training/results/cmu/model.h5')
+model = load_model('training/results/simple_baselines/model.h5')
 validation(
     model=model,
-    dump_name='cmu',
+    dump_name='simple_baselines',
     dataset='val2017'
 )

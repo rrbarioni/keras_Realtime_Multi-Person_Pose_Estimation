@@ -9,7 +9,7 @@ import util
 from config_reader import config_reader
 from scipy.ndimage.filters import gaussian_filter
 
-from model.cmu_model import get_testing_model
+from model.model_simple_baselines import get_testing_model
 
 
 # find connection in the specified sequence, center 29 is in the position 15
@@ -33,6 +33,7 @@ colors = [[255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0]
 def process (input_image, params, model_params):
 
     oriImg = cv2.imread(input_image)  # B,G,R order
+
     multiplier = [x * model_params['boxsize'] / oriImg.shape[0] for x in params['scale_search']]
 
     heatmap_avg = np.zeros((oriImg.shape[0], oriImg.shape[1], 19))
