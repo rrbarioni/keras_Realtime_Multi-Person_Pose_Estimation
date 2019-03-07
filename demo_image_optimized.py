@@ -41,6 +41,7 @@ elapsed_time = {
     'total': {},
     'load_image': {},
     'model_predict': {},
+    'cnn_predict': {},
     'find_peaks': {},
     'find_connections': {},
     'find_people': {},
@@ -74,6 +75,7 @@ print ('took %.5f' % \
 
 print('  model predict: ', end='')
 elapsed_time['model_predict']['tic'] = time.time()
+
 scale = model_params['boxsize'] / oriImg.shape[0]
 
 imageToTest = cv2.resize(oriImg, (0, 0), fx=scale, fy=scale,
@@ -84,7 +86,11 @@ imageToTest_padded, pad = util.padRightDownCorner(imageToTest,
 input_img = np.transpose(np.float32(imageToTest_padded[:,:,:,np.newaxis]),
     (3,0,1,2)) # required shape (1, width, height, channels)
 
+elapsed_time['cnn_predict']['tic'] = time.time()
+
 output_blobs = model.predict(input_img)
+
+elapsed_time['cnn_predict']['toc'] = time.time()
 
 # extract outputs, resize, and remove padding
 heatmap = np.squeeze(output_blobs[1])  # output 1 is heatmaps
@@ -109,10 +115,14 @@ paf = paf[
 paf = cv2.resize(paf, (oriImg.shape[1], oriImg.shape[0]),
     interpolation=cv2.INTER_CUBIC)
 
+
 elapsed_time['model_predict']['toc'] = time.time()
 print ('took %.5f' % \
     (elapsed_time['model_predict']['toc'] \
     - elapsed_time['model_predict']['tic']))
+
+print ('    cnn predict: took %.5f' % \
+    (elapsed_time['cnn_predict']['toc'] - elapsed_time['cnn_predict']['tic']))
 
 print('  find peaks: ', end='')
 elapsed_time['find_peaks']['tic'] = time.time()
