@@ -7,7 +7,8 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 import util
-from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage.filters import gaussian_filter, maximum_filter
+from scipy.ndimage.morphology import generate_binary_structure, binary_erosion
 
 from model.model_cmu import get_testing_model
 
@@ -83,7 +84,7 @@ imageToTest = cv2.resize(oriImg, (0, 0), fx=scale, fy=scale,
 imageToTest_padded, pad = util.padRightDownCorner(imageToTest,
     model_params['stride'], model_params['padValue'])
 
-input_img = np.transpose(np.float32(imageToTest_padded[:,:,:,np.newaxis]),
+input_img = np.transpose(np.float32(imageToTest_padded[:, :, :, np.newaxis]),
     (3,0,1,2)) # required shape (1, width, height, channels)
 
 elapsed_time['cnn_predict']['tic'] = time.time()
@@ -99,8 +100,7 @@ heatmap = cv2.resize(heatmap, (0, 0), fx=model_params['stride'],
 heatmap = heatmap[
     :imageToTest_padded.shape[0] - pad[2],
     :imageToTest_padded.shape[1] - pad[3],
-    :
-]
+    :]
 heatmap = cv2.resize(heatmap, (oriImg.shape[1], oriImg.shape[0]),
     interpolation=cv2.INTER_CUBIC)
 
@@ -110,11 +110,9 @@ paf = cv2.resize(paf, (0, 0), fx=model_params['stride'],
 paf = paf[
     :imageToTest_padded.shape[0] - pad[2],
     :imageToTest_padded.shape[1] - pad[3],
-    :
-]
+    :]
 paf = cv2.resize(paf, (oriImg.shape[1], oriImg.shape[0]),
     interpolation=cv2.INTER_CUBIC)
-
 
 elapsed_time['model_predict']['toc'] = time.time()
 print ('took %.5f' % \
@@ -132,21 +130,21 @@ peak_counter = 0
 
 for part in range(18):
     map_ori = heatmap[:, :, part]
-    map = gaussian_filter(map_ori, sigma=3)
+    
+    map_ori = cv2.threshold(map_ori, params['thre1'], 1, cv2.THRESH_TOZERO)[1]
 
-    map_left = np.zeros(map.shape)
-    map_left[1:, :] = map[:-1, :]
-    map_right = np.zeros(map.shape)
-    map_right[:-1, :] = map[1:, :]
-    map_up = np.zeros(map.shape)
-    map_up[:, 1:] = map[:, :-1]
-    map_down = np.zeros(map.shape)
-    map_down[:, :-1] = map[:, 1:]
+    neighborhood = generate_binary_structure(2, 2)
+    local_max = maximum_filter(map_ori, footprint=neighborhood) == map_ori
+    background = (map_ori == 0)
 
-    peaks_binary = np.logical_and.reduce((
-        map >= map_left, map >= map_right, map >= map_up, map >= map_down,
-        map > params['thre1']))
-    peaks = list(zip(np.nonzero(peaks_binary)[1], np.nonzero(peaks_binary)[0]))
+    eroded_background = binary_erosion(
+        background, structure=neighborhood, border_value=1)
+    detected_peaks = local_max ^ eroded_background
+
+    peaks_heatmap = detected_peaks
+    detected_peaks = np.where(detected_peaks)
+
+    peaks = [(x, y) for (x, y) in zip(detected_peaks[1], detected_peaks[0])]
     peaks_with_score = [x + (map_ori[x[1], x[0]],) for x in peaks]
     id = range(peak_counter, peak_counter + len(peaks))
     peaks_with_score_and_id = [
@@ -157,7 +155,8 @@ for part in range(18):
 
 elapsed_time['find_peaks']['toc'] = time.time()
 print ('took %.5f' % \
-    (elapsed_time['find_peaks']['toc'] - elapsed_time['find_peaks']['tic']))
+    (elapsed_time['find_peaks']['toc'] \
+    - elapsed_time['find_peaks']['tic']))
 
 print('  find connections: ', end='')
 elapsed_time['find_connections']['tic'] = time.time()
@@ -329,7 +328,7 @@ for i in range(17):
         cv2.fillConvexPoly(cur_canvas, polygon, colors[i])
         canvas = cv2.addWeighted(canvas, 0.4, cur_canvas, 0.6, 0)
 
-# cv2.imwrite(output, canvas)
+cv2.imwrite(output, canvas)
 
 elapsed_time['create_canvas']['toc'] = time.time()
 print ('took %.5f' % \
