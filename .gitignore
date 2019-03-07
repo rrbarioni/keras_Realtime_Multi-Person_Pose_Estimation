@@ -15,3 +15,8 @@ __pycache__
 logs/
 training.csv
 weights.best.h5
+
+*.png
+*.jpg
+*.mp4
+training/results
