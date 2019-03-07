@@ -7,7 +7,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 import util
-from scipy.ndimage.filters import gaussian_filter, maximum_filter
+from scipy.ndimage.filters import maximum_filter
 from scipy.ndimage.morphology import generate_binary_structure, binary_erosion
 
 from model.model_cmu import get_testing_model
@@ -38,16 +38,7 @@ colors = [
     [255, 0, 255], [255, 0, 170], [255, 0, 85]
 ]
 
-elapsed_time = {
-    'total': {},
-    'load_image': {},
-    'model_predict': {},
-    'cnn_predict': {},
-    'find_peaks': {},
-    'find_connections': {},
-    'find_people': {},
-    'create_canvas': {},
-}
+elapsed_time = {}
 
 '''
 python demo_image_optimized.py
@@ -63,19 +54,18 @@ model = get_testing_model()
 model.load_weights(keras_weights_file)
 
 print('start processing...')
-elapsed_time['total']['tic'] = time.time()
+elapsed_time['total'] = time.time()
 
 print('  load image: ', end='')
-elapsed_time['load_image']['tic'] = time.time()
+elapsed_time['load_image'] = time.time()
 
 oriImg = cv2.imread(input_image)  # B,G,R orde
 
-elapsed_time['load_image']['toc'] = time.time()
-print ('took %.5f' % \
-    (elapsed_time['load_image']['toc'] - elapsed_time['load_image']['tic']))
+elapsed_time['load_image'] = time.time() - elapsed_time['load_image']
+print ('took %.5f' % elapsed_time['load_image'])
 
 print('  model predict: ', end='')
-elapsed_time['model_predict']['tic'] = time.time()
+elapsed_time['model_predict'] = time.time()
 
 scale = model_params['boxsize'] / oriImg.shape[0]
 
@@ -87,11 +77,11 @@ imageToTest_padded, pad = util.padRightDownCorner(imageToTest,
 input_img = np.transpose(np.float32(imageToTest_padded[:, :, :, np.newaxis]),
     (3,0,1,2)) # required shape (1, width, height, channels)
 
-elapsed_time['cnn_predict']['tic'] = time.time()
+elapsed_time['cnn_predict'] = time.time()
 
 output_blobs = model.predict(input_img)
 
-elapsed_time['cnn_predict']['toc'] = time.time()
+elapsed_time['cnn_predict'] = time.time() - elapsed_time['cnn_predict']
 
 # extract outputs, resize, and remove padding
 heatmap = np.squeeze(output_blobs[1])  # output 1 is heatmaps
@@ -114,16 +104,13 @@ paf = paf[
 paf = cv2.resize(paf, (oriImg.shape[1], oriImg.shape[0]),
     interpolation=cv2.INTER_CUBIC)
 
-elapsed_time['model_predict']['toc'] = time.time()
-print ('took %.5f' % \
-    (elapsed_time['model_predict']['toc'] \
-    - elapsed_time['model_predict']['tic']))
+elapsed_time['model_predict'] = time.time() - elapsed_time['model_predict']
+print ('took %.5f' % elapsed_time['model_predict'])
 
-print ('    cnn predict: took %.5f' % \
-    (elapsed_time['cnn_predict']['toc'] - elapsed_time['cnn_predict']['tic']))
+print ('    cnn_predict: took %.5f' % elapsed_time['cnn_predict'])
 
 print('  find peaks: ', end='')
-elapsed_time['find_peaks']['tic'] = time.time()
+elapsed_time['find_peaks'] = time.time()
 
 all_peaks = []
 peak_counter = 0
@@ -153,13 +140,11 @@ for part in range(18):
     all_peaks.append(peaks_with_score_and_id)
     peak_counter += len(peaks)
 
-elapsed_time['find_peaks']['toc'] = time.time()
-print ('took %.5f' % \
-    (elapsed_time['find_peaks']['toc'] \
-    - elapsed_time['find_peaks']['tic']))
+elapsed_time['find_peaks'] = time.time() - elapsed_time['find_peaks']
+print ('took %.5f' % elapsed_time['find_peaks'])
 
 print('  find connections: ', end='')
-elapsed_time['find_connections']['tic'] = time.time()
+elapsed_time['find_connections'] = time.time()
 
 connection_all = []
 special_k = []
@@ -199,8 +184,8 @@ for k in range(len(mapIdx)):
                         1]
                     for I in range(len(startend))])
 
-                score_midpts = np.multiply(
-                    vec_x, vec[0]) + np.multiply(vec_y, vec[1])
+                score_midpts = np.multiply(vec_x, vec[0]) \
+                    + np.multiply(vec_y, vec[1])
                 score_with_dist_prior = sum(score_midpts) / len(score_midpts) \
                     + min(0.5 * oriImg.shape[0] / norm - 1, 0)
                 criterion1 = len(
@@ -227,13 +212,12 @@ for k in range(len(mapIdx)):
         special_k.append(k)
         connection_all.append([])
 
-elapsed_time['find_connections']['toc'] = time.time()
-print ('took %.5f' % \
-    (elapsed_time['find_connections']['toc'] \
-    - elapsed_time['find_connections']['tic']))
+elapsed_time['find_connections'] = time.time() \
+    - elapsed_time['find_connections']
+print ('took %.5f' % elapsed_time['find_connections'])
 
 print('  find people: ', end='')
-elapsed_time['find_people']['tic'] = time.time()
+elapsed_time['find_people'] = time.time()
 
 # last number in each row is the total parts number of that person
 # the second last number in each row is the score of the overall configuration
@@ -295,12 +279,11 @@ for i in range(len(subset)):
         deleteIdx.append(i)
 subset = np.delete(subset, deleteIdx, axis=0)
 
-elapsed_time['find_people']['toc'] = time.time()
-print ('took %.5f' % \
-    (elapsed_time['find_people']['toc'] - elapsed_time['find_people']['tic']))
+elapsed_time['find_people'] = time.time() - elapsed_time['find_people']
+print ('took %.5f' % elapsed_time['find_people'])
 
 print('  create canvas: ', end='')
-elapsed_time['create_canvas']['tic'] = time.time()
+elapsed_time['create_canvas'] = time.time()
 
 canvas = cv2.imread(input_image)  # B,G,R order
 for i in range(18):
@@ -330,11 +313,8 @@ for i in range(17):
 
 cv2.imwrite(output, canvas)
 
-elapsed_time['create_canvas']['toc'] = time.time()
-print ('took %.5f' % \
-    (elapsed_time['create_canvas']['toc'] \
-    - elapsed_time['create_canvas']['tic']))
+elapsed_time['create_canvas'] = time.time() - elapsed_time['create_canvas']
+print ('took %.5f' % elapsed_time['create_canvas'])
 
-elapsed_time['total']['toc'] = time.time()
-print ('total processing time is %.5f' % \
-    (elapsed_time['total']['toc'] - elapsed_time['total']['tic']))
+elapsed_time['total'] = time.time() - elapsed_time['total']
+print ('total processing time is %.5f' % elapsed_time['total'])
