@@ -46,7 +46,7 @@ python demo_image_optimized.py
 --output result_optimized_simple_baselines.png
 --model training/results/simple_baselines/weights.h5
 '''
-input_image = 'sample_images/ski.jpg'
+input_image = 'sample_images/porteiros.jpg'
 output = 'result_optimized_cmu.png'
 keras_weights_file = 'training/results/cmu/weights.h5'
 
@@ -56,15 +56,15 @@ model.load_weights(keras_weights_file)
 print('start processing...')
 elapsed_time['total'] = time.time()
 
-print('  load image: ', end='')
+# load image:
 elapsed_time['load_image'] = time.time()
 
 oriImg = cv2.imread(input_image)  # B,G,R orde
 
 elapsed_time['load_image'] = time.time() - elapsed_time['load_image']
-print ('took %.5f' % elapsed_time['load_image'])
+print ('  load image: took %.5f' % elapsed_time['load_image'])
 
-print('  model predict: ', end='')
+# model predict:
 elapsed_time['model_predict'] = time.time()
 
 scale = model_params['boxsize'] / oriImg.shape[0]
@@ -77,6 +77,7 @@ imageToTest_padded, pad = util.padRightDownCorner(imageToTest,
 input_img = np.transpose(np.float32(imageToTest_padded[:, :, :, np.newaxis]),
     (3,0,1,2)) # required shape (1, width, height, channels)
 
+# cnn predict:
 elapsed_time['cnn_predict'] = time.time()
 
 output_blobs = model.predict(input_img)
@@ -105,11 +106,11 @@ paf = cv2.resize(paf, (oriImg.shape[1], oriImg.shape[0]),
     interpolation=cv2.INTER_CUBIC)
 
 elapsed_time['model_predict'] = time.time() - elapsed_time['model_predict']
-print ('took %.5f' % elapsed_time['model_predict'])
+print ('  model predict: took %.5f' % elapsed_time['model_predict'])
 
 print ('    cnn_predict: took %.5f' % elapsed_time['cnn_predict'])
 
-print('  find peaks: ', end='')
+# find peaks:
 elapsed_time['find_peaks'] = time.time()
 
 all_peaks = []
@@ -141,53 +142,89 @@ for part in range(18):
     peak_counter += len(peaks)
 
 elapsed_time['find_peaks'] = time.time() - elapsed_time['find_peaks']
-print ('took %.5f' % elapsed_time['find_peaks'])
+print ('  find peaks: took %.5f' % elapsed_time['find_peaks'])
 
-print('  find connections: ', end='')
+# find connections:
 elapsed_time['find_connections'] = time.time()
 
 connection_all = []
 special_k = []
 
+et_fc = [{ 'nAnB': [] } for k in range(len(mapIdx))]
 for k in range(len(mapIdx)):
+    et_fc[k]['total'] = time.time()
+    
+    et_fc[k]['score_mid'] = time.time()
     score_mid = paf[:, :, [x - 19 for x in mapIdx[k]]]
+    et_fc[k]['score_mid'] = time.time() - et_fc[k]['score_mid']
+    
+    et_fc[k]['candA_candB'] = time.time()
     candA = all_peaks[limbSeq[k][0] - 1]
     candB = all_peaks[limbSeq[k][1] - 1]
     nA = len(candA)
     nB = len(candB)
     indexA, indexB = limbSeq[k]
+    et_fc[k]['candA_candB'] = time.time() - et_fc[k]['candA_candB']
+
     if (nA != 0 and nB != 0):
         connection_candidate = []
         for i in range(nA):
             for j in range(nB):
+                et_fc[k]['nAnB'].append({})
+                
+                et_fc[k]['nAnB'][-1]['vec_norm'] = time.time()
                 vec = np.subtract(candB[j][:2], candA[i][:2])
                 norm = math.sqrt(vec[0] * vec[0] + vec[1] * vec[1])
                 # failure case when 2 body parts overlaps
                 if norm == 0:
                     continue
                 vec = np.divide(vec, norm)
+                et_fc[k]['nAnB'][-1]['vec_norm'] = time.time() \
+                    - et_fc[k]['nAnB'][-1]['vec_norm']
 
+                et_fc[k]['nAnB'][-1]['startend'] = time.time()
+                '''
                 startend = list(zip(
                     np.linspace(candA[i][0], candB[j][0],
                         num=params['mid_num']),
                     np.linspace(candA[i][1], candB[j][1],
                         num=params['mid_num'])))
+                '''
+                
+                startend = [
+                    (
+                        (1 - k) * candA[i][0] + k * candB[j][0],
+                        (1 - k) * candA[i][1] + k * candB[j][1]
+                    )
+                    for k in np.arange(0.0, 1.0, 1 / params['mid_num'])
+                ]
+                
+                et_fc[k]['nAnB'][-1]['startend'] = time.time() \
+                    - et_fc[k]['nAnB'][-1]['startend']
 
+                et_fc[k]['nAnB'][-1]['vec_xy'] = time.time()
                 vec_x = np.array([
                     score_mid[
-                        int(round(startend[I][1])), int(round(startend[I][0])),
+                        int(round(startend[k][1])), int(round(startend[k][0])),
                         0]
-                    for I in range(len(startend))])
+                    for k in range(len(startend))])
                 vec_y = np.array([
                     score_mid[
-                        int(round(startend[I][1])), int(round(startend[I][0])),
+                        int(round(startend[k][1])), int(round(startend[k][0])),
                         1]
-                    for I in range(len(startend))])
+                    for k in range(len(startend))])
+                et_fc[k]['nAnB'][-1]['vec_xy'] = time.time() \
+                    - et_fc[k]['nAnB'][-1]['vec_xy']
 
+                et_fc[k]['nAnB'][-1]['score'] = time.time()
                 score_midpts = np.multiply(vec_x, vec[0]) \
                     + np.multiply(vec_y, vec[1])
                 score_with_dist_prior = sum(score_midpts) / len(score_midpts) \
                     + min(0.5 * oriImg.shape[0] / norm - 1, 0)
+                et_fc[k]['nAnB'][-1]['score'] = time.time() \
+                    - et_fc[k]['nAnB'][-1]['score']
+                    
+                et_fc[k]['nAnB'][-1]['criterion'] = time.time()
                 criterion1 = len(
                     np.nonzero(score_midpts > params['thre2'])[0]) \
                     > 0.8 * len(score_midpts)
@@ -195,7 +232,10 @@ for k in range(len(mapIdx)):
                 if criterion1 and criterion2:
                     connection_candidate.append([i, j, score_with_dist_prior,
                         score_with_dist_prior + candA[i][2] + candB[j][2]])
+                et_fc[k]['nAnB'][-1]['criterion'] = time.time() \
+                    - et_fc[k]['nAnB'][-1]['criterion']
 
+        et_fc[k]['connection'] = time.time()
         connection_candidate = sorted(connection_candidate, key=lambda x: x[2],
             reverse=True)
         connection = np.zeros((0, 5))
@@ -208,15 +248,20 @@ for k in range(len(mapIdx)):
                     break
 
         connection_all.append(connection)
+        et_fc[k]['connection'] = time.time() - et_fc[k]['connection']
     else:
+        et_fc[k]['special_k'] = time.time()
         special_k.append(k)
         connection_all.append([])
+        et_fc[k]['special_k'] = time.time() - et_fc[k]['special_k']
+        
+    et_fc[k]['total'] = time.time() - et_fc[k]['total']
 
 elapsed_time['find_connections'] = time.time() \
     - elapsed_time['find_connections']
-print ('took %.5f' % elapsed_time['find_connections'])
+print ('  find connections: took %.5f' % elapsed_time['find_connections'])
 
-print('  find people: ', end='')
+# find people:
 elapsed_time['find_people'] = time.time()
 
 # last number in each row is the total parts number of that person
@@ -280,9 +325,9 @@ for i in range(len(subset)):
 subset = np.delete(subset, deleteIdx, axis=0)
 
 elapsed_time['find_people'] = time.time() - elapsed_time['find_people']
-print ('took %.5f' % elapsed_time['find_people'])
+print ('  find people: took %.5f' % elapsed_time['find_people'])
 
-print('  create canvas: ', end='')
+# create canvas:
 elapsed_time['create_canvas'] = time.time()
 
 canvas = cv2.imread(input_image)  # B,G,R order
@@ -314,7 +359,7 @@ for i in range(17):
 cv2.imwrite(output, canvas)
 
 elapsed_time['create_canvas'] = time.time() - elapsed_time['create_canvas']
-print ('took %.5f' % elapsed_time['create_canvas'])
+print ('  create canvas: took %.5f' % elapsed_time['create_canvas'])
 
 elapsed_time['total'] = time.time() - elapsed_time['total']
 print ('total processing time is %.5f' % elapsed_time['total'])
