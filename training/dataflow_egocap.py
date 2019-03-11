@@ -94,10 +94,14 @@ class EgoCapDataPaths:
                     curr_k = f.readline()
                     curr_k = curr_k.replace('\n', '')
                     _, curr_x, curr_y = curr_k.split(' ')
+                    curr_x = int(curr_x)
+                    curr_y = int(curr_y)
 
                     if curr_x >=0 and curr_y >= 0 and curr_x < curr_width \
                         and curr_y < curr_height:
-                    curr_keypoints.append((curr_x, curr_y))
+                        curr_keypoints.append((curr_x, curr_y))
+                    else:
+                        curr_keypoints.append(None)
 
                 self.annot.append({
                     'img_path': curr_img_path,
