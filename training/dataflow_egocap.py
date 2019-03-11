@@ -42,6 +42,7 @@ class Meta(object):
         'masks_segments',
         'all_joints',
         'img',
+        'mask',
         'aug_center',
         'aug_joints')
 
@@ -57,6 +58,7 @@ class Meta(object):
 
         # updated during augmentation
         self.img = None
+        self.mask = None
         self.aug_center = None
         self.aug_joints = None
 
@@ -93,6 +95,8 @@ class EgoCapDataPaths:
                     curr_k = curr_k.replace('\n', '')
                     _, curr_x, curr_y = curr_k.split(' ')
 
+                    if curr_x >=0 and curr_y >= 0 and curr_x < curr_width \
+                        and curr_y < curr_height:
                     curr_keypoints.append((curr_x, curr_y))
 
                 self.annot.append({
@@ -104,7 +108,7 @@ class EgoCapDataPaths:
                 })
 
                 i += 1
-                if i % 1000 == 0:
+                if i % 10000 == 0:
                     print("Loading data paths {}".format(i))
 
 
@@ -129,7 +133,10 @@ class EgoCapDataFlow(RNGDataFlow):
         self.target_size = target_size
 
     def __iter__(self):
-        return self
+        return get_data(self)
+
+    def __len__(self):
+        return len(self.all_meta)
 
     def prepare(self):
         '''
@@ -151,8 +158,8 @@ class EgoCapDataFlow(RNGDataFlow):
                     num_keypoints=curr_annot['num_keypoints'],
                     all_joints=[curr_annot['keypoints']]))
 
-            if i % 1000 == 0:
-                print("Loading image annot {}/{}".format(i, len(egocap.annot)))
+                if i % 10000 == 0:
+                    print("Loading image annot {}/{}".format(i, len(egocap.annot)))
 
 def save(self, path):
     raise NotImplemented
@@ -172,7 +179,8 @@ def get_data(self):
 
     :return: instance of Meta
     '''
-    idxs = np.arange(self.size())
+    # idxs = np.arange(self.size())
+    idxs = np.arange(len(self))
     self.rng.shuffle(idxs)
     for idx in idxs:
         yield [self.all_meta[idx]]
