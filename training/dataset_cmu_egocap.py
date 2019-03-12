@@ -8,14 +8,14 @@ from tensorpack.dataflow.common import BatchData, MapData
 from tensorpack.dataflow.common import TestDataSpeed
 from tensorpack.dataflow.parallel import PrefetchDataZMQ
 
-from training.augmentors import ScaleAug, RotateAug, CropAug, FlipAug, \
+from training.augmentors_egocap import ScaleAug, RotateAug, CropAug, FlipAug, \
     joints_to_point8, point8_to_joints, AugImgMetadata
 from training.dataflow_egocap import EgoCapDataFlow, JointsLoader, EgoCapDataPaths
-from training.label_maps import create_heatmap, create_paf
+from training.label_maps_egocap import create_heatmap, create_paf
 
 
 ALL_PAF_MASK = np.repeat(
-    np.ones((46, 46, 1), dtype=np.uint8), 38, axis=2)
+    np.ones((46, 46, 1), dtype=np.uint8), 34, axis=2)
 
 ALL_HEATMAP_MASK = np.repeat(
     np.ones((46, 46, 1), dtype=np.uint8), 19, axis=2)
@@ -88,16 +88,15 @@ def augment(components):
     """
     meta = components[0]
 
-    # aug_center = meta.center.copy()
+    aug_center = meta.center.copy()
     aug_joints = joints_to_point8(meta.all_joints)
 
-    '''
     for aug in AUGMENTORS_LIST:
         (im, mask), params = aug.augment_return_params(
             AugImgMetadata(img=meta.img,
                             mask=meta.mask,
                             center=aug_center,
-                            scale=meta.scale))
+                            scale=1))
 
         # augment joints
         aug_joints = aug.augment_coords(aug_joints, params)
@@ -112,10 +111,9 @@ def augment(components):
 
         meta.img = im
         meta.mask = mask
-    '''
 
     meta.aug_joints = point8_to_joints(aug_joints)
-    # meta.aug_center = aug_center
+    meta.aug_center = aug_center
 
     return components
 

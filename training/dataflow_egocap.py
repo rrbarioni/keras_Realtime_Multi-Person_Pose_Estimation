@@ -38,6 +38,7 @@ class Meta(object):
         'img_path',
         'height',
         'width',
+        'center',
         'num_keypoints',
         'masks_segments',
         'all_joints',
@@ -50,6 +51,7 @@ class Meta(object):
         self.img_path = img_path
         self.height = height
         self.width = width
+        self.center = np.expand_dims([int(self.height / 2), int(self.width / 2)], axis=0)
         self.num_keypoints = num_keypoints
 
         # updated after iterating over all persons

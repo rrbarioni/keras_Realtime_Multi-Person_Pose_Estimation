@@ -12,7 +12,7 @@ from keras.layers.convolutional import Conv2D
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from model.model_cmu import get_training_model
+from model.model_cmu_egocap import get_training_model
 from training.optimizers import MultiSGD
 from training.dataset_cmu_egocap import get_dataflow, batch_dataflow
 from training.dataflow_egocap import EgoCapDataPaths
