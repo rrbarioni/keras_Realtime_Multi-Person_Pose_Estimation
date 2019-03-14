@@ -31,7 +31,7 @@ python demo_image_optimized.py
 --output result_optimized_cmu_egocap.png
 --model training/results/cmu_egocap/weights.h5
 '''
-input_image = 'sample_images/S5_v002_cam1_frame-2323.jpg'
+input_image = 'sample_images/S5_v002_cam1_frame-2326.jpg'
 output = 'result_optimized_cmu_egocap.png'
 keras_weights_file = 'training/results/cmu_egocap/weights.h5'
 
