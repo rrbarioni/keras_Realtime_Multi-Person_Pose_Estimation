@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import random
 
 from tensorpack.dataflow.base import RNGDataFlow
 
@@ -45,7 +46,8 @@ class Meta(object):
         'img',
         'mask',
         'aug_center',
-        'aug_joints')
+        'aug_joints',
+        'horizontal_flip')
 
     def __init__(self, img_path, height, width, num_keypoints, all_joints):
         self.img_path = img_path
@@ -63,6 +65,9 @@ class Meta(object):
         self.mask = None
         self.aug_center = None
         self.aug_joints = None
+
+        # as there are two cameras (left and right)
+        self.horizontal_flip = bool(random.randint(0, 1))
 
 class EgoCapDataPaths:
     """

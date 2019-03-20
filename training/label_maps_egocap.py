@@ -4,7 +4,7 @@ import numpy as np
 from training.dataflow_egocap import JointsLoader
 
 
-def create_heatmap(num_maps, height, width, all_joints, sigma, stride):
+def create_heatmap(num_maps, height, width, all_joints, sigma, stride, horizontal_flip):
     """
     Creates stacked heatmaps for all joints + background. For 18 joints
     we would get an array height x width x 19.
@@ -25,7 +25,8 @@ def create_heatmap(num_maps, height, width, all_joints, sigma, stride):
     for joints in all_joints:
         for plane_idx, joint in enumerate(joints):
             if joint:
-                _put_heatmap_on_plane(heatmap, plane_idx, joint, sigma, height, width, stride)
+                _put_heatmap_on_plane(heatmap, plane_idx, joint, sigma, height,
+                    width, stride, horizontal_flip)
 
     # background
     heatmap[:, :, -1] = np.clip(1.0 - np.amax(heatmap, axis=2), 0.0, 1.0)
@@ -33,7 +34,7 @@ def create_heatmap(num_maps, height, width, all_joints, sigma, stride):
     return heatmap
 
 
-def create_paf(num_maps, height, width, all_joints, threshold, stride):
+def create_paf(num_maps, height, width, all_joints, threshold, stride, horizontal_flip):
     """
     Creates stacked paf maps for all connections. One connection requires
     2 maps because of paf vectors along dx and dy axis. For coco we have
@@ -63,15 +64,19 @@ def create_paf(num_maps, height, width, all_joints, threshold, stride):
             x2, y2 = (center_to[0] / stride, center_to[1] / stride)
 
             _put_paf_on_plane(vectormap, countmap, plane_idx, x1, y1, x2, y2,
-                              threshold, height, width)
+                              threshold, height, width, horizontal_flip)
 
     return vectormap
 
 
-def _put_heatmap_on_plane(heatmap, plane_idx, joint, sigma, height, width, stride):
+def _put_heatmap_on_plane(heatmap, plane_idx, joint, sigma, height, width,
+                         stride, horizontal_flip):
     start = stride / 2.0 - 0.5
 
     center_x, center_y = joint
+
+    if horizontal_flip:
+        center_x = height - center_x
 
     for g_y in range(height):
         for g_x in range(width):
@@ -88,7 +93,11 @@ def _put_heatmap_on_plane(heatmap, plane_idx, joint, sigma, height, width, strid
 
 
 def _put_paf_on_plane(vectormap, countmap, plane_idx, x1, y1, x2, y2,
-                     threshold, height, width):
+                     threshold, height, width, horizontal_flip):
+
+    if horizontal_flip:
+        x1 = width - x1
+        x2 = width - x2
 
     min_x = max(0, int(round(min(x1, x2) - threshold)))
     max_x = min(width, int(round(max(x1, x2) + threshold)))
