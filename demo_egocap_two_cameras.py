@@ -1,6 +1,5 @@
 import cv2
 import math
-import time
 import numpy as np
 import matplotlib.pyplot as plt
 import util
@@ -8,8 +7,12 @@ import scipy.ndimage.filters as fi
 
 from model.model_cmu_egocap import get_testing_model
 
-def predict_joints(model, input_image):
+def predict_joints(model, input_image, model_params, horizontal_flip):
     oriImg = cv2.imread(input_image)
+    oriImg = cv2.resize(oriImg,
+        (model_params['boxsize'], model_params['boxsize']))
+    if horizontal_flip:
+        oriImg = cv2.flip(oriImg, 1)
     
     scale = model_params['boxsize'] / oriImg.shape[0]
 
@@ -17,10 +20,10 @@ def predict_joints(model, input_image):
         interpolation=cv2.INTER_CUBIC)
     imageToTest_padded, pad = util.padRightDownCorner(imageToTest,
         model_params['stride'], model_params['padValue'])
-
-    input_img = np.transpose(np.float32(imageToTest_padded[:, :, :, np.newaxis]),
-        (3,0,1,2)) # required shape (1, width, height, channels)
-
+    
+    # required shape (1, width, height, channels)
+    input_img = np.transpose(
+        np.float32(imageToTest_padded[:, :, :, np.newaxis]), (3,0,1,2))
     output_blobs = model.predict(input_img)
 
     # extract outputs, resize, and remove padding
@@ -34,13 +37,21 @@ def predict_joints(model, input_image):
     heatmap = cv2.resize(heatmap, (oriImg.shape[1], oriImg.shape[0]),
         interpolation=cv2.INTER_CUBIC)
 
-    all_peaks = [np.unravel_index(heatmap[:,:,i].argmax(), heatmap[:,:,i].shape)    
+    all_peaks = [
+        np.unravel_index(heatmap[:,:,i].argmax(), heatmap[:,:,i].shape)    
         for i in range(heatmap.shape[-1])]
+    
+    if horizontal_flip:
+        all_peaks = [
+            (peak[0], oriImg.shape[1] - peak[1]) for peak in all_peaks]
 
     return all_peaks
 
-def create_canvas(input_image, all_peaks):
-    canvas = cv2.imread(input_image)  # B,G,R order
+def create_canvas(input_image, all_peaks, model_params):
+    canvas = cv2.imread(input_image)
+    canvas = cv2.resize(canvas,
+        (model_params['boxsize'], model_params['boxsize']))
+    
     for i in range(len(all_peaks) - 1):
         cv2.circle(canvas, all_peaks[i][::-1], 4, colors[i], thickness=-1)
     
@@ -60,9 +71,7 @@ def create_canvas(input_image, all_peaks):
         canvas = cv2.addWeighted(canvas, 0.4, curr_canvas, 0.6, 0)
         
     return canvas
-    
 
-params = { 'scale_search': [1], 'thre1': 0.1, 'thre2': 0.05, 'mid_num': 10 }
 
 model_params = { 'boxsize': 368, 'stride': 8, 'padValue': 128 }
 
@@ -77,18 +86,23 @@ colors = [
     [0, 170, 255], [0, 85, 255], [0, 0, 255], [85, 0, 255], [170, 0, 255],
     [255, 0, 255], [255, 0, 170], [255, 0, 85], [255, 0, 0]]
 
-input_image_1 = 'sample_images/egocap/S5_v002_cam1_frame-2324.jpg'
-input_image_2 = 'sample_images/egocap/S5_v002_cam1_frame-2326.jpg'
+input_image_1 = 'sample_images/egocap/egocap_test_left_images/left_30.jpg'
+input_image_2 = 'sample_images/egocap/egocap_test_right_images/right_30.jpg'
+output_image_1 = 'demo_egocap_two_cameras_left.jpg'
+output_image_2 = 'demo_egocap_two_cameras_right.jpg'
 keras_weights_file = 'training/results/cmu_egocap/weights.h5'
 
 model = get_testing_model()
 model.load_weights(keras_weights_file)
 
-all_peaks_1 = predict_joints(model, input_image_1)
-all_peaks_2 = predict_joints(model, input_image_2)
+all_peaks_1 = predict_joints(model, input_image_1, model_params, False)
+all_peaks_2 = predict_joints(model, input_image_2, model_params, True)
 
-canvas_1 = create_canvas(input_image_1, all_peaks_1)
-canvas_2 = create_canvas(input_image_2, all_peaks_2)
+canvas_1 = create_canvas(input_image_1, all_peaks_1, model_params)
+canvas_2 = create_canvas(input_image_2, all_peaks_2, model_params)
 
-plt.imshow(canvas_1)
-plt.imshow(canvas_2)
+# plt.imshow(canvas_1)
+# plt.imshow(canvas_2)
+
+cv2.imwrite(output_image_1, canvas_1)
+cv2.imwrite(output_image_2, canvas_2)

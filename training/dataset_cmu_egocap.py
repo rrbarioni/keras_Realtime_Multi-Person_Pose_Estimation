@@ -56,9 +56,6 @@ def read_img(components):
     meta.img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     meta.height, meta.width = meta.img.shape[:2]
 
-    if meta.horizontal_flip:
-        meta.img = cv2.flip(meta.img, 1)
-
     return components
 
 
@@ -170,10 +167,10 @@ def build_sample(components):
         mask_heatmap = create_all_mask(meta.mask, 19, stride=8)
 
     heatmap = create_heatmap(JointsLoader.num_joints_and_bkg, 46, 46,
-                             meta.aug_joints, 7.0, 8, meta.horizontal_flip)
+                             meta.aug_joints, 7.0, stride=8)
 
     pafmap = create_paf(JointsLoader.num_connections, 46, 46,
-                        meta.aug_joints, 1, 8, meta.horizontal_flip)
+                        meta.aug_joints, 1, stride=8)
 
     # release reference to the image/mask/augmented data. Otherwise it would easily consume all memory at some point
     meta.mask = None

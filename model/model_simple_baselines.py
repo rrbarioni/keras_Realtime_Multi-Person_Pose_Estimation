@@ -206,8 +206,8 @@ def get_testing_model():
     np_branch1 = 38
     np_branch2 = 19
 
-    # img_input_shape = (None, None, 3)
-    img_input_shape = (368, 368, 3)
+    img_input_shape = (None, None, 3)
+    # img_input_shape = (368, 368, 3)
 
     img_input = Input(shape=img_input_shape)
 
