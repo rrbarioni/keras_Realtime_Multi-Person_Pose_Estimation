@@ -1,10 +1,10 @@
 import numpy as np
 import time
 
-eval_cmu = False
+eval_cmu = True
 eval_simple_baselines = not eval_cmu
 
-eval_testing_model = True
+eval_testing_model = False
 eval_training_model = not eval_testing_model
 
 input_size = 368

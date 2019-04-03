@@ -8,8 +8,6 @@ import scipy.ndimage.filters as fi
 
 from model.model_cmu_egocap import get_testing_model
 
-params = { 'scale_search': [1], 'thre1': 0.1, 'thre2': 0.05, 'mid_num': 10 }
-
 model_params = { 'boxsize': 368, 'stride': 8, 'padValue': 128 }
 
 joint_index_pairs = list(zip(
@@ -31,7 +29,7 @@ python demo_image_optimized.py
 --output result_optimized_cmu_egocap.png
 --model training/results/cmu_egocap/weights.h5
 '''
-input_image = 'sample_images/egocap/S5_v002_cam1_frame-2326.jpg'
+input_image = 'sample_images/egocap/S1_v002_cam0_frame-0359.jpg'
 output = 'result_optimized_cmu_egocap.png'
 keras_weights_file = 'training/results/cmu_egocap/weights.h5'
 
