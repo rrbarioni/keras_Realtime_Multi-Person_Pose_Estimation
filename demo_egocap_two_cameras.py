@@ -44,6 +44,8 @@ def predict_joints(model, input_image, model_params, horizontal_flip):
     if horizontal_flip:
         all_peaks = [
             (peak[0], oriImg.shape[1] - peak[1]) for peak in all_peaks]
+        for i, j in horizontal_flip_joint_swap:            
+            all_peaks[i], all_peaks[j] = all_peaks[j], all_peaks[i]
 
     return all_peaks
 
@@ -72,12 +74,14 @@ def create_canvas(input_image, all_peaks, model_params):
         
     return canvas
 
-
 model_params = { 'boxsize': 368, 'stride': 8, 'padValue': 128 }
 
 joint_index_pairs = list(zip(
     [0, 1, 2, 3, 4, 1, 6, 7, 8, 1,  10, 11, 12, 1,  14, 15, 16],
     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]))
+horizontal_flip_joint_swap = [
+    (2, 6), (3, 7), (4, 8), (5, 9), (10, 14), (11, 15), (12, 16), (13, 17)
+]
 
 # visualize
 colors = [
@@ -86,8 +90,8 @@ colors = [
     [0, 170, 255], [0, 85, 255], [0, 0, 255], [85, 0, 255], [170, 0, 255],
     [255, 0, 255], [255, 0, 170], [255, 0, 85], [255, 0, 0]]
 
-input_image_1 = 'sample_images/egocap/egocap_test_left_images/left_30.jpg'
-input_image_2 = 'sample_images/egocap/egocap_test_right_images/right_30.jpg'
+input_image_1 = 'images/egocap/egocap_test_left_images/left_30.jpg'
+input_image_2 = 'images/egocap/egocap_test_right_images/right_30.jpg'
 output_image_1 = 'demo_egocap_two_cameras_left.jpg'
 output_image_2 = 'demo_egocap_two_cameras_right.jpg'
 keras_weights_file = 'training/results/cmu_egocap/weights.h5'
@@ -106,3 +110,35 @@ canvas_2 = create_canvas(input_image_2, all_peaks_2, model_params)
 
 cv2.imwrite(output_image_1, canvas_1)
 cv2.imwrite(output_image_2, canvas_2)
+
+def undistort_image(img):
+    K = np.array([
+        [184, 0.0, 184],
+        [0.0, 184, 184],
+        [0.0, 0.0, 1.0]])
+    '''
+    D = np.array([
+        [-0.042595202508066574],
+        [0.031307765215775184],
+        [-0.04104704724832258],
+        [0.015343014605793324]])
+    '''
+    D = np.array([
+        [1.0],
+        [0.0],
+        [1.0],
+        [0.0]])
+    '''
+    h, w = img.shape[:2]
+    map1, map2 = cv2.fisheye.initUndistortRectifyMap(
+        K, D, np.eye(3), K, (h, w), cv2.CV_16SC2)
+    undistorted_img = cv2.remap(img, map1, map2,
+        interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+    '''
+    xi = np.array([[1.0]], np.float)
+    undistorted_img = cv2.omnidir.undistortImage(img, K, D,
+        xi, cv2.omnidir.RECTIFY_PERSPECTIVE, np.eye(3))
+    
+    
+    return undistorted_img
+plt.imshow(undistort_image(canvas_1))

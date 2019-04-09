@@ -1,27 +1,17 @@
 import numpy as np
 import time
 
-eval_cmu = True
-eval_simple_baselines = not eval_cmu
-
-eval_testing_model = False
-eval_training_model = not eval_testing_model
+eval_testing_model = True
 
 input_size = 368
 num_keypoints = 19
 num_pafs = 38
 
 if eval_testing_model:
-    if eval_cmu:
-        from model_cmu import get_testing_model as get_model
-    else:
-        from model_simple_baselines import get_testing_model as get_model
+    from model_cmu_resnet50 import get_testing_model as get_model
     model = get_model()
 else:
-    if eval_cmu:
-        from model_cmu import get_training_model as get_model
-    else:
-        from model_simple_baselines import get_training_model as get_model
+    from model_cmu_resnet50 import get_training_model as get_model
     model = get_model(5e-4)
 
 model.summary()
