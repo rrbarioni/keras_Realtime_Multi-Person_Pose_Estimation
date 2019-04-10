@@ -110,35 +110,3 @@ canvas_2 = create_canvas(input_image_2, all_peaks_2, model_params)
 
 cv2.imwrite(output_image_1, canvas_1)
 cv2.imwrite(output_image_2, canvas_2)
-
-def undistort_image(img):
-    K = np.array([
-        [184, 0.0, 184],
-        [0.0, 184, 184],
-        [0.0, 0.0, 1.0]])
-    '''
-    D = np.array([
-        [-0.042595202508066574],
-        [0.031307765215775184],
-        [-0.04104704724832258],
-        [0.015343014605793324]])
-    '''
-    D = np.array([
-        [1.0],
-        [0.0],
-        [1.0],
-        [0.0]])
-    '''
-    h, w = img.shape[:2]
-    map1, map2 = cv2.fisheye.initUndistortRectifyMap(
-        K, D, np.eye(3), K, (h, w), cv2.CV_16SC2)
-    undistorted_img = cv2.remap(img, map1, map2,
-        interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
-    '''
-    xi = np.array([[1.0]], np.float)
-    undistorted_img = cv2.omnidir.undistortImage(img, K, D,
-        xi, cv2.omnidir.RECTIFY_PERSPECTIVE, np.eye(3))
-    
-    
-    return undistorted_img
-plt.imshow(undistort_image(canvas_1))
