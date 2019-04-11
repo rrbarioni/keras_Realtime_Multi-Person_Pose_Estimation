@@ -24,7 +24,7 @@ class JointsLoader:
 
     idx_in_egocap_str = ['Head', 'Neck', 'RShoulder', 'RElbow', 'RWrist',
         'RFinger', 'LShoulder', 'LElbow', 'LWrist', 'LFinger', 'RHip', 'RKnee',
-        'RAnkle', 'RToe', 'LHip', 'LKnee', 'LAnkle', 'RToe']
+        'RAnkle', 'RToe', 'LHip', 'LKnee', 'LAnkle', 'LToe']
 
     joint_pairs = list(zip(
         [0, 1, 2, 3, 4, 1, 6, 7, 8, 1,  10, 11, 12, 1,  14, 15, 16],

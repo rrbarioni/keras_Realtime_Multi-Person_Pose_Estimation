@@ -72,49 +72,12 @@ class Vector3d:
             (self.y + other.y) / 2,
             (self.z + other.z) / 2)
 
-class Util:
-    @staticmethod
-    def dist_vector_point(vector, point):
-        n = vector
-        pa = point * -1
-        d = pa - (n * pa.dot_product(n) / n.dot_product(n))
-        
-        return (d.dot_product(d)) ** (1/2)
-
-    @staticmethod
-    def angle_two_vectors_in_degrees(vector_1, vector_2):
-        cos_angle = vector_1.dot_product(vector_2) / (vector_1.magnitude() * vector_2.magnitude())
-        angle_rad = math.acos(cos_angle)
-        angle_degrees = angle_rad * 180 / math.pi
-
-        return angle_degrees
-
-    @staticmethod
-    def line_sphere_intersections(line, sphere_c, sphere_r):
-        # ((lx * k) - cx) ** 2 + ((ly * k) - cy) ** 2 + ((lz * k) - cz) ** 2 = r ** 2
-        
-        a = (line.x ** 2) + (line.y ** 2) + (line.z ** 2)
-        b = -2 * (line.x * sphere_c.x + line.y * sphere_c.y + line.z * sphere_c.z)
-        c = (sphere_c.x ** 2) + (sphere_c.y ** 2) + (sphere_c.z ** 2) - (sphere_r ** 2)
-        delta = (b ** 2) - (4 * a * c)
-
-        if (delta < 0):
-            return None, None, None
-
-        k1 = (-b + delta ** (1/2)) / (2 * a)
-        k2 = (-b - delta ** (1/2)) / (2 * a)
-
-        intersection_1 = Vector3d(line.x * k1, line.y * k1, line.z * k1)
-        intersection_2 = Vector3d(line.x * k2, line.y * k2, line.z * k2)
-
-        return intersection_1, intersection_2, delta
-
-    @staticmethod
-    def fold(f, l, a):
-        return a if (len(l) == 0) else Util.fold(f, l[1:], f(a, l[0]))
-
 class Camera:
-    def __init__(self, horizontal_fov, vertical_fov, fx, fy, cx, cy):
+    def __init__(self, x, y, z, horizontal_fov, vertical_fov, fx, fy, cx, cy):
+        self.x = x
+        self.y = y
+        self.z = z
+
         self.fx = fx
         self.fy = fy
         self.cx = cx
@@ -131,10 +94,9 @@ class Camera:
 
     def screen_to_world(self, screen_joint):
         return Vector3d(
-            (screen_joint.x - self.cx) / self.fx,
-            (screen_joint.y - self.cy) / self.fy,
-            self.near
-        )
+            self.x + (screen_joint.x - self.cx) / self.fx,
+            self.y + (screen_joint.y - self.cy) / self.fy,
+            self.z + self.near)
 
     def get_screen_world_joints(self, screen_joints):
         return dict({
@@ -142,34 +104,34 @@ class Camera:
             for (key,value) in screen_joints.items() })
 
 class Render:
-    def __init__(self, width, height, camera, screen_world_joints, ground_truth):
+    def __init__(self, width, height, left_camera, left_screen_world_joints, 
+        right_camera, right_screen_world_joints):
         pygame.init()
         display = (width,height)
         pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
 
-        self.camera = camera
-        self.screen_world_joints = screen_world_joints
-        self.ground_truth = ground_truth
+        self.left_camera = left_camera
+        self.right_camera = right_camera
+        self.left_screen_world_joints = left_screen_world_joints
+        self.right_screen_world_joints = right_screen_world_joints
 
         self.render_switches = {
             'camera': True,
             'screen_world_joints': True,
-            'ground_truth': True,
             'mouse_rotation_handler': True
         }
 
         self.colors = {
             'camera': (1, 0.2, 1),
-            'screen_world_joints': (1, 1, 0),
-            'ground_truth': (0, 1, 0),
             'bones': [
-                (255,   0,   0), (255,  85,   0), (255, 170,   0), (255, 255,   0), (170, 255,   0),
-                ( 85, 255,   0), (  0, 255,   0), (  0, 255,  85), (  0, 255, 170), (  0, 255, 255),
-                (  0, 170, 255), (  0,  85, 255), (  0,   0, 255), ( 85,   0, 255), (170,   0, 255),
-                (255,   0, 255), (255,   0, 170), (255,   0,  85), (255,   0,   0)
-            ]
-            'rays': (0.6, 0.6, 0.6),
-            'default': (1, 1, 1)
+                (255,   0,   0), (255,  85,   0), (255, 170,   0),
+                (255, 255,   0), (170, 255,   0), ( 85, 255,   0),
+                (  0, 255,   0), (  0, 255,  85), (  0, 255, 170),
+                (  0, 255, 255), (  0, 170, 255), (  0,  85, 255),
+                (  0,   0, 255), ( 85,   0, 255), (170,   0, 255),
+                (255,   0, 255), (255,   0, 170), (255,   0,  85),
+                (255,   0,   0)],
+            'rays': (0.6, 0.6, 0.6)
         }
 
         self.front_vectors_size = 0.3
@@ -184,96 +146,124 @@ class Render:
 
         self.orientation = (0, 0, -1)
 
-    def set_camera(self, camera):
-        self.camera = camera
-        return self
-
-    def set_screen_world_joints(self, screen_world_joints):
-        self.screen_world_joints = screen_world_joints
-        return self
-
-    def set_ground_truth(self, ground_truth):
-        self.ground_truth = ground_truth
-        return self
-
     def draw_axis_origin(self):
         glLineWidth(4)
         axis_length = 0.3
 
         # X axis
         glBegin(GL_LINES)
-        glColor3fv((1,0,0))
-        glVertex3fv((0,0,0))
+        glColor3fv((1, 0, 0))
+        glVertex3fv((0, 0, 0))
         glVertex3fv((axis_length, 0, 0))
         glEnd()
         
         # Y axis
         glBegin(GL_LINES)
-        glColor3fv((0,0,1))
-        glVertex3fv((0,0,0))
+        glColor3fv((0, 0, 1))
+        glVertex3fv((0, 0, 0))
         glVertex3fv((0, axis_length, 0))
         glEnd()
 
         # Z axis
         glBegin(GL_LINES)
-        glColor3fv((0,1,0))
-        glVertex3fv((0,0,0))
+        glColor3fv((0, 1, 0))
+        glVertex3fv((0, 0, 0))
         glVertex3fv((0, 0, axis_length))
         glEnd()
 
-    def draw_camera(self):
+    def draw_camera(self, camera):
         glLineWidth(1)
         glColor3fv(self.colors['camera'])
 
-        half_camera_width = self.camera.world_screen_width / 2
-        half_camera_height = self.camera.world_screen_height / 2
+        cx = camera.x
+        cy = camera.y
+        cz = camera.z
+
+        half_camera_width = camera.world_screen_width / 2
+        half_camera_height = camera.world_screen_height / 2
 
         glBegin(GL_LINES)
-        glVertex3fv((0,0,0))
-        glVertex3fv((-half_camera_width, -half_camera_height, self.camera.near))
+        glVertex3fv((cx, cy, cz))
+        glVertex3fv((
+            cx - half_camera_width,
+            cy - half_camera_height,
+            cz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
-        glVertex3fv((0,0,0))
-        glVertex3fv((-half_camera_width, half_camera_height, self.camera.near))
+        glVertex3fv((cx, cy, cz))
+        glVertex3fv((
+            cx - half_camera_width,
+            cy + half_camera_height,
+            cz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
-        glVertex3fv((0,0,0))
-        glVertex3fv((half_camera_width, -half_camera_height, self.camera.near))
+        glVertex3fv((cx, cy, cz))
+        glVertex3fv((
+            cx + half_camera_width,
+            cy - half_camera_height,
+            cz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
-        glVertex3fv((0,0,0))
-        glVertex3fv((half_camera_width, half_camera_height, self.camera.near))
+        glVertex3fv((cx, cy, cz))
+        glVertex3fv((
+            cx + half_camera_width,
+            cy + half_camera_height,
+            cz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
-        glVertex3fv((-half_camera_width, -half_camera_height, self.camera.near))
-        glVertex3fv((-half_camera_width, half_camera_height, self.camera.near))
+        glVertex3fv((
+            cx - half_camera_width,
+            cy - half_camera_height,
+            cz + camera.near))
+        glVertex3fv((
+            cx - half_camera_width,
+            cy + half_camera_height,
+            cz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
-        glVertex3fv((-half_camera_width, half_camera_height, self.camera.near))
-        glVertex3fv((half_camera_width, half_camera_height, self.camera.near))
+        glVertex3fv((
+            cx - half_camera_width,
+            cy + half_camera_height,
+            cz + camera.near))
+        glVertex3fv((
+            cx + half_camera_width,
+            cy + half_camera_height,
+            cz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
-        glVertex3fv((half_camera_width, half_camera_height, self.camera.near))
-        glVertex3fv((half_camera_width, -half_camera_height, self.camera.near))
+        glVertex3fv((
+            cx + half_camera_width,
+            cy + half_camera_height,
+            cz + camera.near))
+        glVertex3fv((
+            cx + half_camera_width,
+            cy - half_camera_height,
+            cz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
-        glVertex3fv((half_camera_width, -half_camera_height, self.camera.near))
-        glVertex3fv((-half_camera_width, -half_camera_height, self.camera.near))
+        glVertex3fv((
+            cx + half_camera_width,
+            cy - half_camera_height,
+            cz + camera.near))
+        glVertex3fv((
+            cx - half_camera_width,
+            cy - half_camera_height,
+            cz + camera.near))
         glEnd()
 
-    def draw_skeleton(self, joints, type='default'):
+    def draw_skeleton(self, joints):
         glLineWidth(1)
-        glColor3fv(self.colors[type])
 
         glBegin(GL_LINES)
-        for bone in bones_list.values():
+        for (i, bone) in bones_list.items():
+            glColor3fv(self.colors['bones'][i])
             if bone[0] in joints and bone[1] in joints:
                 glVertex3fv((
                     joints[bone[0]].x, joints[bone[0]].y, joints[bone[0]].z))
@@ -281,18 +271,22 @@ class Render:
                     joints[bone[1]].x, joints[bone[1]].y, joints[bone[1]].z))
         glEnd()
 
-    def draw_rays(self, joints):
+    def draw_rays(self, camera, joints):
         glLineWidth(1)
         glColor3fv(self.colors['rays'])
 
-        glBegin(GL_LINES)
+        cx = camera.x
+        cy = camera.y
+        cz = camera.z
+
         for joint in joints.values():
-            glVertex3fv((0,0,0))
+            glBegin(GL_LINES)
+            glVertex3fv((cx, cy, cz))
             glVertex3fv((
-                joint.x * self.rays_size,
-                joint.y * self.rays_size,
-                joint.z * self.rays_size))
-        glEnd()
+                (cx + joint.x) * self.rays_size,
+                (cy + joint.y) * self.rays_size,
+                (cz + joint.z) * self.rays_size))
+            glEnd()
 
     def mouse_rotation_handler(self):
         current_mouse_pos = pygame.mouse.get_pos()
@@ -319,13 +313,13 @@ class Render:
 
             keys_pressed = pygame.key.get_pressed()
             if keys_pressed[K_w]:
-                glTranslatef(0,0,0.1)
+                glTranslatef(0, 0, 0.1)
             if keys_pressed[K_s]:
-                glTranslatef(0,0,-0.1)
+                glTranslatef(0, 0, -0.1)
             if keys_pressed[K_a]:
-                glTranslatef(-0.1,0,0)
+                glTranslatef(-0.1, 0, 0)
             if keys_pressed[K_d]:
-                glTranslatef(0.1,0,0)
+                glTranslatef(0.1, 0, 0)
 
             # glRotatef(1, 0, 1, 0)
             # glTranslatef(0, 0, 0.01)
@@ -334,15 +328,17 @@ class Render:
             self.draw_axis_origin()
 
             if self.render_switches['camera']:
-                self.draw_camera()
+                self.draw_camera(self.left_camera)
+                self.draw_camera(self.right_camera)
 
-            if self.screen_world_joints is not None:
-                self.draw_rays(self.screen_world_joints)
-                self.draw_skeleton(
-                    self.screen_world_joints, type='screen_world_joints')
-
-            if self.ground_truth is not None:
-                self.draw_skeleton(self.ground_truth, type='ground_truth')
+            if self.left_screen_world_joints is not None:
+                self.draw_rays(
+                    self.left_camera, self.left_screen_world_joints)
+                self.draw_skeleton(self.left_screen_world_joints)
+            if self.right_screen_world_joints is not None:
+                self.draw_rays(
+                    self.right_camera, self.right_screen_world_joints)
+                self.draw_skeleton(self.right_screen_world_joints)
 
             pygame.display.flip()
             pygame.time.wait(10)
@@ -350,39 +346,47 @@ class Render:
 
 # test:
 # ORIGINAL:
-bones_list = {
-    'neck':          ('neck',       'head'),
-    'l_collar_bone': ('l_shoulder', 'neck'),
-    'l_upper_arm':   ('l_elbow',    'l_shoulder'),
-    'l_fore_arm':    ('l_wrist',    'l_elbow'),
-    'r_collar_bone': ('r_shoulder', 'neck'),
-    'r_upper_arm':   ('r_elbow',    'r_shoulder'),
-    'r_fore_arm':    ('r_wrist',    'r_elbow'),
-    'l_spine':       ('l_pelvis',   'neck'),
-    'l_femur':       ('l_knee',     'l_pelvis'),
-    'l_shin':        ('l_foot',     'l_knee'),
-    'r_spine':       ('r_pelvis',   'neck'),
-    'r_femur':       ('r_knee',     'r_pelvis'),
-    'r_shin':        ('r_foot',     'r_knee'),
-}
+# camera = Camera(
+#     horizontal_fov=70,
+#     vertical_fov=60,
+#     fx=1069.44,
+#     fy=-1065.81,
+#     cx=982.03,
+#     cy=540.08,
+# )
+# bones_list = {
+#     'neck':          ('neck',       'head'),
+#     'l_collar_bone': ('l_shoulder', 'neck'),
+#     'l_upper_arm':   ('l_elbow',    'l_shoulder'),
+#     'l_fore_arm':    ('l_wrist',    'l_elbow'),
+#     'r_collar_bone': ('r_shoulder', 'neck'),
+#     'r_upper_arm':   ('r_elbow',    'r_shoulder'),
+#     'r_fore_arm':    ('r_wrist',    'r_elbow'),
+#     'l_spine':       ('l_pelvis',   'neck'),
+#     'l_femur':       ('l_knee',     'l_pelvis'),
+#     'l_shin':        ('l_foot',     'l_knee'),
+#     'r_spine':       ('r_pelvis',   'neck'),
+#     'r_femur':       ('r_knee',     'r_pelvis'),
+#     'r_shin':        ('r_foot',     'r_knee'),
+# }
 
-screen_joints = {
-    'head':       Vector2d(948, 394),
-    'l_shoulder': Vector2d(858, 533),
-    'l_elbow':    Vector2d(824, 657),
-    'l_wrist':    Vector2d(824, 776),
-    'r_shoulder': Vector2d(1025, 532),
-    'r_elbow':    Vector2d(1041, 639),
-    'r_wrist':    Vector2d(1027, 744),
-    'l_pelvis':   Vector2d(895, 790),
-    'l_knee':     Vector2d(886, 957),
-    'l_foot':     Vector2d(874, 1107),
-    'r_pelvis':   Vector2d(977, 791),
-    'r_knee':     Vector2d(995, 948),
-    'r_foot':     Vector2d(1007, 1096),
-    'neck':       Vector2d(946, 473),
-}
-screen_world_joints = camera.get_screen_world_joints(screen_joints)
+# screen_joints = {
+#     'head':       Vector2d(948, 394),
+#     'l_shoulder': Vector2d(858, 533),
+#     'l_elbow':    Vector2d(824, 657),
+#     'l_wrist':    Vector2d(824, 776),
+#     'r_shoulder': Vector2d(1025, 532),
+#     'r_elbow':    Vector2d(1041, 639),
+#     'r_wrist':    Vector2d(1027, 744),
+#     'l_pelvis':   Vector2d(895, 790),
+#     'l_knee':     Vector2d(886, 957),
+#     'l_foot':     Vector2d(874, 1107),
+#     'r_pelvis':   Vector2d(977, 791),
+#     'r_knee':     Vector2d(995, 948),
+#     'r_foot':     Vector2d(1007, 1096),
+#     'neck':       Vector2d(946, 473),
+# }
+# screen_world_joints = camera.get_screen_world_joints(screen_joints)
 
 # ground_truth = {
 #     "head":       Vector3d(-0.05539,  0.27005, 1.95791),
@@ -402,36 +406,89 @@ screen_world_joints = camera.get_screen_world_joints(screen_joints)
 # }
 
 # EGOCAP:
-    # idx_in_egocap_str = ['Head', 'Neck', 'RShoulder', 'RElbow', 'RWrist',
-    #     'RFinger', 'LShoulder', 'LElbow', 'LWrist', 'LFinger', 'RHip', 'RKnee',
-    #     'RAnkle', 'RToe', 'LHip', 'LKnee', 'LAnkle', 'RToe']
-
-    # joint_pairs = list(zip(
-    #     [0, 1, 2, 3, 4, 1, 6, 7, 8, 1,  10, 11, 12, 1,  14, 15, 16],
-    #     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]))
 bones_list = {
-    'neck':          ('neck',       'head'),
-    'l_collar_bone': ('l_shoulder', 'neck'),
-    'l_upper_arm':   ('l_elbow',    'l_shoulder'),
-    'l_fore_arm':    ('l_wrist',    'l_elbow'),
-    'r_collar_bone': ('r_shoulder', 'neck'),
-    'r_upper_arm':   ('r_elbow',    'r_shoulder'),
-    'r_fore_arm':    ('r_wrist',    'r_elbow'),
-    'l_spine':       ('l_pelvis',   'neck'),
-    'l_femur':       ('l_knee',     'l_pelvis'),
-    'l_shin':        ('l_foot',     'l_knee'),
-    'r_spine':       ('r_pelvis',   'neck'),
-    'r_femur':       ('r_knee',     'r_pelvis'),
-    'r_shin':        ('r_foot',     'r_knee'),
-}
+    0:  ('Head',      'Neck'),
+    1:  ('Neck',      'RShoulder'),
+    2:  ('RShoulder', 'RElbow'),
+    3:  ('RElbow',    'RWrist'),
+    4:  ('RWrist',    'RFinger'),
+    5:  ('Neck',      'LShoulder'),
+    6:  ('LShoulder', 'LElbow'),
+    7:  ('LElbow',    'LWrist'),
+    8:  ('LWrist',    'LFinger'),
+    9:  ('Neck',      'RHip'),
+    10: ('RHip',      'RKnee'),
+    11: ('RKnee',     'RAnkle'),
+    12: ('RAnkle',    'RToe'),
+    13: ('Neck',      'LHip'),
+    14: ('LHip',      'LKnee'),
+    15: ('LKnee',     'LAnkle'),
+    16: ('LAnkle',    'LToe') }
 
-camera = Camera(
-    horizontal_fov=70,
+left_camera = Camera(
+    x=0,
+    y=0,
+    z=0,
+    horizontal_fov=60,
     vertical_fov=60,
-    fx=1069.44,
-    fy=-1065.81,
-    cx=982.03,
-    cy=540.08,
-)
+    fx=368,
+    fy=368,
+    cx=184,
+    cy=184)
+left_screen_joints = {
+    'Head':       Vector2d(366, 278),
+    'Neck':       Vector2d(328, 268),
+    'RShoulder':  Vector2d(293, 219),
+    'RElbow':     Vector2d(248, 203),
+    'RWrist':     Vector2d(216, 201),
+    'RFinger':    Vector2d(207, 198),
+    'LShoulder':  Vector2d(277, 288),
+    'LElbow':     Vector2d(224, 280),
+    'LWrist':     Vector2d(190, 271),
+    'LFinger':    Vector2d(178, 265),
+    'RHip':       Vector2d(246, 228),
+    'RKnee':      Vector2d(235, 228),
+    'RAnkle':     Vector2d(237, 225),
+    'RToe':       Vector2d(235, 225),
+    'LHip':       Vector2d(245, 244), 
+    'LKnee':      Vector2d(233, 239), 
+    'LAnkle':     Vector2d(234, 234), 
+    'RToe':       Vector2d(226, 235) }
+left_screen_world_joints = left_camera.get_screen_world_joints(
+    left_screen_joints)
+left_image = 'left_egocap_renderer_test.jpg'
 
-Render(1200, 900, camera, screen_world_joints, None).run()
+right_camera = Camera(
+    x=0,
+    y=1.3,
+    z=0,
+    horizontal_fov=60,
+    vertical_fov=60,
+    fx=368,
+    fy=368,
+    cx=184,
+    cy=184)
+right_screen_joints = {
+    'Head':       Vector2d(366, 111),
+    'Neck':       Vector2d(334, 118),
+    'RShoulder':  Vector2d(293, 109),
+    'RElbow':     Vector2d(251, 126),
+    'RWrist':     Vector2d(223, 134),
+    'RFinger':    Vector2d(208, 139),
+    'LShoulder':  Vector2d(294, 184),
+    'LElbow':     Vector2d(241, 202),
+    'LWrist':     Vector2d(232, 181),
+    'LFinger':    Vector2d(224, 205),
+    'RHip':       Vector2d(250, 169),
+    'RKnee':      Vector2d(238, 175),
+    'RAnkle':     Vector2d(237, 182),
+    'RToe':       Vector2d(233, 180),
+    'LHip':       Vector2d(243, 184),
+    'LKnee':      Vector2d(231, 181),
+    'LAnkle':     Vector2d(233, 187),
+    'RToe':       Vector2d(227, 184) }
+right_screen_world_joints = right_camera.get_screen_world_joints(
+    right_screen_joints)
+right_image = 'right_egocap_renderer_test.jpg'
+
+Render(1200, 900, left_camera, left_screen_world_joints, right_camera, right_screen_world_joints).run()
