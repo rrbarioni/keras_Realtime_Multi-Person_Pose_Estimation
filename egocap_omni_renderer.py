@@ -73,10 +73,15 @@ class Vector3d:
             (self.z + other.z) / 2)
 
 class Camera:
-    def __init__(self, x, y, z, horizontal_fov, vertical_fov, fx, fy, cx, cy):
+    def __init__(self, x, y, z, rx, ry, rz, horizontal_fov, vertical_fov, 
+        fx, fy, cx, cy):
         self.x = x
         self.y = y
         self.z = z
+
+        self.rx = rx
+        self.ry = ry
+        self.rz = rz
 
         self.fx = fx
         self.fy = fy
@@ -283,9 +288,9 @@ class Render:
             glBegin(GL_LINES)
             glVertex3fv((cx, cy, cz))
             glVertex3fv((
-                (cx + joint.x) * self.rays_size,
-                (cy + joint.y) * self.rays_size,
-                (cz + joint.z) * self.rays_size))
+                cx + (joint.x * self.rays_size),
+                cy + (joint.y * self.rays_size),
+                cz + (joint.z * self.rays_size)))
             glEnd()
 
     def mouse_rotation_handler(self):
@@ -313,13 +318,13 @@ class Render:
 
             keys_pressed = pygame.key.get_pressed()
             if keys_pressed[K_w]:
-                glTranslatef(0, 0, 0.1)
+                glTranslatef(0, 0, 0.05)
             if keys_pressed[K_s]:
-                glTranslatef(0, 0, -0.1)
+                glTranslatef(0, 0, -0.05)
             if keys_pressed[K_a]:
-                glTranslatef(-0.1, 0, 0)
+                glTranslatef(-0.05, 0, 0)
             if keys_pressed[K_d]:
-                glTranslatef(0.1, 0, 0)
+                glTranslatef(0.05, 0, 0)
 
             # glRotatef(1, 0, 1, 0)
             # glTranslatef(0, 0, 0.01)
@@ -330,7 +335,6 @@ class Render:
             if self.render_switches['camera']:
                 self.draw_camera(self.left_camera)
                 self.draw_camera(self.right_camera)
-
             if self.left_screen_world_joints is not None:
                 self.draw_rays(
                     self.left_camera, self.left_screen_world_joints)
@@ -342,68 +346,6 @@ class Render:
 
             pygame.display.flip()
             pygame.time.wait(10)
-
-
-# test:
-# ORIGINAL:
-# camera = Camera(
-#     horizontal_fov=70,
-#     vertical_fov=60,
-#     fx=1069.44,
-#     fy=-1065.81,
-#     cx=982.03,
-#     cy=540.08,
-# )
-# bones_list = {
-#     'neck':          ('neck',       'head'),
-#     'l_collar_bone': ('l_shoulder', 'neck'),
-#     'l_upper_arm':   ('l_elbow',    'l_shoulder'),
-#     'l_fore_arm':    ('l_wrist',    'l_elbow'),
-#     'r_collar_bone': ('r_shoulder', 'neck'),
-#     'r_upper_arm':   ('r_elbow',    'r_shoulder'),
-#     'r_fore_arm':    ('r_wrist',    'r_elbow'),
-#     'l_spine':       ('l_pelvis',   'neck'),
-#     'l_femur':       ('l_knee',     'l_pelvis'),
-#     'l_shin':        ('l_foot',     'l_knee'),
-#     'r_spine':       ('r_pelvis',   'neck'),
-#     'r_femur':       ('r_knee',     'r_pelvis'),
-#     'r_shin':        ('r_foot',     'r_knee'),
-# }
-
-# screen_joints = {
-#     'head':       Vector2d(948, 394),
-#     'l_shoulder': Vector2d(858, 533),
-#     'l_elbow':    Vector2d(824, 657),
-#     'l_wrist':    Vector2d(824, 776),
-#     'r_shoulder': Vector2d(1025, 532),
-#     'r_elbow':    Vector2d(1041, 639),
-#     'r_wrist':    Vector2d(1027, 744),
-#     'l_pelvis':   Vector2d(895, 790),
-#     'l_knee':     Vector2d(886, 957),
-#     'l_foot':     Vector2d(874, 1107),
-#     'r_pelvis':   Vector2d(977, 791),
-#     'r_knee':     Vector2d(995, 948),
-#     'r_foot':     Vector2d(1007, 1096),
-#     'neck':       Vector2d(946, 473),
-# }
-# screen_world_joints = camera.get_screen_world_joints(screen_joints)
-
-# ground_truth = {
-#     "head":       Vector3d(-0.05539,  0.27005, 1.95791),
-#     "l_shoulder": Vector3d(-0.21802,  0.01493, 1.90445),
-#     "l_elbow":    Vector3d(-0.27991, -0.20893, 1.90757),
-#     "l_wrist":    Vector3d(-0.27114, -0.40407, 1.82395),
-#     "r_shoulder": Vector3d( 0.08004,  0.01386, 1.86651),
-#     "r_elbow":    Vector3d( 0.09393, -0.16023, 1.71716),
-#     "r_wrist":    Vector3d( 0.05694, -0.29506, 1.53766),
-#     "l_pelvis":   Vector3d(-0.15150, -0.43901, 1.87078),
-#     "l_knee":     Vector3d(-0.17072, -0.74263, 1.89426),
-#     "l_foot":     Vector3d(-0.19390, -1.01891, 1.91696),
-#     "r_pelvis":   Vector3d(-0.00689, -0.43827, 1.85139),
-#     "r_knee":     Vector3d( 0.02322, -0.71868, 1.87110),
-#     "r_foot":     Vector3d( 0.04517, -0.98975, 1.89516),
-#     "neck":       Vector3d(-0.05940,  0.12449, 1.95275),
-# }
 
 # EGOCAP:
 bones_list = {
@@ -426,15 +368,11 @@ bones_list = {
     16: ('LAnkle',    'LToe') }
 
 left_camera = Camera(
-    x=0,
-    y=0,
-    z=0,
+    x=0, y=0, z=0,
+    rx=0, ry=0, rz=0,
     horizontal_fov=60,
     vertical_fov=60,
-    fx=368,
-    fy=368,
-    cx=184,
-    cy=184)
+    fx=368, fy=368, cx=184, cy=184)
 left_screen_joints = {
     'Head':       Vector2d(366, 278),
     'Neck':       Vector2d(328, 268),
@@ -459,15 +397,11 @@ left_screen_world_joints = left_camera.get_screen_world_joints(
 left_image = 'left_egocap_renderer_test.jpg'
 
 right_camera = Camera(
-    x=0,
-    y=1.3,
-    z=0,
+    x=0, y=1.3, z=0,
+    rx=0, ry=0, rz=0,
     horizontal_fov=60,
     vertical_fov=60,
-    fx=368,
-    fy=368,
-    cx=184,
-    cy=184)
+    fx=368, fy=368, cx=184, cy=184)
 right_screen_joints = {
     'Head':       Vector2d(366, 111),
     'Neck':       Vector2d(334, 118),

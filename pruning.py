@@ -1,13 +1,15 @@
 import numpy as np
+
 import keras
 from keras.models import load_model, Model
+from kerassurgeon import Surgeon
 
-from model.model_simple_baselines import get_testing_model as get_model
+from model.model_cmu import get_testing_model as get_model
 
 np.set_printoptions(suppress=True)
 
 model = get_model()
-model.load_weights('training/results/simple_baselines/weights.h5')
+model.load_weights('training/results/cmu/weights.h5')
 
 model.summary()
 
@@ -49,3 +51,16 @@ def get_l1_list_per_layer(model):
     return l1_list_per_layer
 
 l1_list_per_layer = get_l1_list_per_layer(model)
+sorted_l1_list_per_layer = l1_list_per_layer[l1_list_per_layer[:,2].argsort()]
+
+prune_l1_005_list = np.array([
+    f for f in sorted_l1_list_per_layer if f[2] < 0.05])
+prune_l1_005_by_layer = {
+    int(l): list(prune_l1_005_list[prune_l1_005_list[:,0] == l][:,1].astype(int))
+    for l in np.unique(prune_l1_005_list[:,0]) }
+
+surgeon = Surgeon(model)
+for (l, fl) in prune_l1_005_by_layer.items():
+    surgeon.add_job('delete_channels', model.layers[l],
+        channels=fl)
+surgeon.operate()

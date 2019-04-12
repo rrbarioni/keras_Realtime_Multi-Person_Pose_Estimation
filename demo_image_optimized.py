@@ -10,6 +10,8 @@ import util
 from scipy.ndimage.filters import maximum_filter
 from scipy.ndimage.morphology import generate_binary_structure, binary_erosion
 
+from keras.models import load_model
+
 from model.model_cmu_resnet50 import get_testing_model
 
 params = { 'scale_search': [1], 'thre1': 0.1, 'thre2': 0.05, 'mid_num': 10 }
@@ -40,18 +42,14 @@ colors = [
 
 elapsed_time = {}
 
-'''
-python demo_image_optimized.py
---image sample_images/ski.jpg
---output result_optimized_simple_baselines.png
---model training/results/simple_baselines/weights.h5
-'''
-input_image = 'images/ski.jpg'
+input_image = 'images/porteiros.jpg'
 output = 'result_optimized_cmu_resnet50.png'
 keras_weights_file = 'training/results/cmu_1stage_resnet50_res3d/weights.h5'
+keras_model_file = 'training/results/cmu_1stage_resnet50_res3d/model.h5'
 
-model = get_testing_model()
-model.load_weights(keras_weights_file)
+# model = get_testing_model()
+# model.load_weights(keras_weights_file)
+model = load_model(keras_model_file)
 
 print('start processing...')
 elapsed_time['total'] = time.time()

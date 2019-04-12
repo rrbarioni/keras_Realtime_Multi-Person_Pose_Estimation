@@ -297,13 +297,12 @@ def predict_many(coco, images_directory, validation_ids, params, model, model_pa
         # if (count == 5):
         #     break
         # count = count + 1
-		
+        
     return keypoints
 
 
 def format_results(keypoints, resFile):
     format_keypoints = []
-
     for image_id, people in keypoints.items():
         for keypoint_list, score in people:
             format_keypoint_list = []
@@ -368,9 +367,9 @@ def per_image_scores(eval_result):
 
     return pd.DataFrame(scores)
 
-model = load_model('training/results/simple_baselines/model.h5')
+model = load_model('training/results/cmu_1stage_resnet50_res3d/model.h5')
 validation(
     model=model,
-    dump_name='simple_baselines',
+    dump_name='cmu_1stage_resnet50_res3d',
     dataset='val2017'
 )
