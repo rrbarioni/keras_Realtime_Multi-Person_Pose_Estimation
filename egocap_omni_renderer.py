@@ -72,16 +72,11 @@ class Vector3d:
             (self.y + other.y) / 2,
             (self.z + other.z) / 2)
 
-class Camera:
+class PinholeCamera:
     def __init__(self, x, y, z, rx, ry, rz, horizontal_fov, vertical_fov, 
         fx, fy, cx, cy):
-        self.x = x
-        self.y = y
-        self.z = z
-
-        self.rx = rx
-        self.ry = ry
-        self.rz = rz
+        self.p = Vector3d(x, y, z)
+        self.r = Vector3d(rx, ry, rz)
 
         self.fx = fx
         self.fy = fy
@@ -99,14 +94,20 @@ class Camera:
 
     def screen_to_world(self, screen_joint):
         return Vector3d(
-            self.x + (screen_joint.x - self.cx) / self.fx,
-            self.y + (screen_joint.y - self.cy) / self.fy,
-            self.z + self.near)
+            self.p.x + (screen_joint.x - self.cx) / self.fx,
+            self.p.y + (screen_joint.y - self.cy) / self.fy,
+            self.p.z + self.near)
 
     def get_screen_world_joints(self, screen_joints):
         return dict({
             (key, self.screen_to_world(value))
             for (key,value) in screen_joints.items() })
+
+class Util:
+    @staticmethod
+    def nearest_point_two_lines(a, b):
+        return
+
 
 class Render:
     def __init__(self, width, height, left_camera, left_screen_world_joints, 
@@ -180,87 +181,87 @@ class Render:
         glLineWidth(1)
         glColor3fv(self.colors['camera'])
 
-        cx = camera.x
-        cy = camera.y
-        cz = camera.z
+        cpx = camera.p.x
+        cpy = camera.p.y
+        cpz = camera.p.z
 
         half_camera_width = camera.world_screen_width / 2
         half_camera_height = camera.world_screen_height / 2
 
         glBegin(GL_LINES)
-        glVertex3fv((cx, cy, cz))
+        glVertex3fv((cpx, cpy, cpz))
         glVertex3fv((
-            cx - half_camera_width,
-            cy - half_camera_height,
-            cz + camera.near))
+            cpx - half_camera_width,
+            cpy - half_camera_height,
+            cpz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
-        glVertex3fv((cx, cy, cz))
+        glVertex3fv((cpx, cpy, cpz))
         glVertex3fv((
-            cx - half_camera_width,
-            cy + half_camera_height,
-            cz + camera.near))
+            cpx - half_camera_width,
+            cpy + half_camera_height,
+            cpz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
-        glVertex3fv((cx, cy, cz))
+        glVertex3fv((cpx, cpy, cpz))
         glVertex3fv((
-            cx + half_camera_width,
-            cy - half_camera_height,
-            cz + camera.near))
+            cpx + half_camera_width,
+            cpy - half_camera_height,
+            cpz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
-        glVertex3fv((cx, cy, cz))
+        glVertex3fv((cpx, cpy, cpz))
         glVertex3fv((
-            cx + half_camera_width,
-            cy + half_camera_height,
-            cz + camera.near))
-        glEnd()
-
-        glBegin(GL_LINES)
-        glVertex3fv((
-            cx - half_camera_width,
-            cy - half_camera_height,
-            cz + camera.near))
-        glVertex3fv((
-            cx - half_camera_width,
-            cy + half_camera_height,
-            cz + camera.near))
+            cpx + half_camera_width,
+            cpy + half_camera_height,
+            cpz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
         glVertex3fv((
-            cx - half_camera_width,
-            cy + half_camera_height,
-            cz + camera.near))
+            cpx - half_camera_width,
+            cpy - half_camera_height,
+            cpz + camera.near))
         glVertex3fv((
-            cx + half_camera_width,
-            cy + half_camera_height,
-            cz + camera.near))
+            cpx - half_camera_width,
+            cpy + half_camera_height,
+            cpz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
         glVertex3fv((
-            cx + half_camera_width,
-            cy + half_camera_height,
-            cz + camera.near))
+            cpx - half_camera_width,
+            cpy + half_camera_height,
+            cpz + camera.near))
         glVertex3fv((
-            cx + half_camera_width,
-            cy - half_camera_height,
-            cz + camera.near))
+            cpx + half_camera_width,
+            cpy + half_camera_height,
+            cpz + camera.near))
         glEnd()
 
         glBegin(GL_LINES)
         glVertex3fv((
-            cx + half_camera_width,
-            cy - half_camera_height,
-            cz + camera.near))
+            cpx + half_camera_width,
+            cpy + half_camera_height,
+            cpz + camera.near))
         glVertex3fv((
-            cx - half_camera_width,
-            cy - half_camera_height,
-            cz + camera.near))
+            cpx + half_camera_width,
+            cpy - half_camera_height,
+            cpz + camera.near))
+        glEnd()
+
+        glBegin(GL_LINES)
+        glVertex3fv((
+            cpx + half_camera_width,
+            cpy - half_camera_height,
+            cpz + camera.near))
+        glVertex3fv((
+            cpx - half_camera_width,
+            cpy - half_camera_height,
+            cpz + camera.near))
         glEnd()
 
     def draw_skeleton(self, joints):
@@ -280,17 +281,17 @@ class Render:
         glLineWidth(1)
         glColor3fv(self.colors['rays'])
 
-        cx = camera.x
-        cy = camera.y
-        cz = camera.z
+        cpx = camera.p.x
+        cpy = camera.p.y
+        cpz = camera.p.z
 
         for joint in joints.values():
             glBegin(GL_LINES)
-            glVertex3fv((cx, cy, cz))
+            glVertex3fv((cpx, cpy, cpz))
             glVertex3fv((
-                cx + (joint.x * self.rays_size),
-                cy + (joint.y * self.rays_size),
-                cz + (joint.z * self.rays_size)))
+                joint.x + (joint.x - cpx) * self.rays_size,
+                joint.y + (joint.y - cpy) * self.rays_size,
+                joint.z + (joint.z - cpz) * self.rays_size))
             glEnd()
 
     def mouse_rotation_handler(self):
@@ -367,7 +368,7 @@ bones_list = {
     15: ('LKnee',     'LAnkle'),
     16: ('LAnkle',    'LToe') }
 
-left_camera = Camera(
+left_camera = PinholeCamera(
     x=0, y=0, z=0,
     rx=0, ry=0, rz=0,
     horizontal_fov=60,
@@ -396,7 +397,7 @@ left_screen_world_joints = left_camera.get_screen_world_joints(
     left_screen_joints)
 left_image = 'left_egocap_renderer_test.jpg'
 
-right_camera = Camera(
+right_camera = PinholeCamera(
     x=0, y=1.3, z=0,
     rx=0, ry=0, rz=0,
     horizontal_fov=60,
@@ -425,4 +426,5 @@ right_screen_world_joints = right_camera.get_screen_world_joints(
     right_screen_joints)
 right_image = 'right_egocap_renderer_test.jpg'
 
-Render(1200, 900, left_camera, left_screen_world_joints, right_camera, right_screen_world_joints).run()
+Render(1200, 900, left_camera, left_screen_world_joints,
+    right_camera, right_screen_world_joints).run()
