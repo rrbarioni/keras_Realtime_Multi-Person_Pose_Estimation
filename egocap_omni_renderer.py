@@ -105,9 +105,33 @@ class PinholeCamera:
 
 class Util:
     @staticmethod
-    def nearest_point_two_lines(a, b):
-        return
+    def nearest_point_two_lines(a, b, c, d):
+        '''
+        closest point between lines AB and CD
+        '''
 
+        da = (b - a).normalize()
+        db = (d - c).normalize()
+        dc = c - a
+
+        dada = da.dot_product(da)
+        dadb = da.dot_product(db)
+        dadc = da.dot_product(dc)
+        dbdb = db.dot_product(db)
+        dbdc = db.dot_product(dc)
+
+        d = a + \
+            da * ((-dadb * dbdc + dadc * dbdb) / (dada * dbdb - dadb * dadb))
+        e = b + \
+            db * ((dadb * dadc - dbdc * dada) / (dada * dbdb - dadb * dadb))
+
+        p = (d + e) * (1 / 2)
+
+        return p
+
+    def get_3d_skeleton(cp1, cp2, swj1, swj2):
+        return { k: Util.nearest_point_two_lines(cp1, swj1[k], cp2, swj2[k])
+            for k in swj1.keys() }
 
 class Render:
     def __init__(self, width, height, left_camera, left_screen_world_joints, 
@@ -121,10 +145,15 @@ class Render:
         self.left_screen_world_joints = left_screen_world_joints
         self.right_screen_world_joints = right_screen_world_joints
 
+        self.skeleton_3d = Util.get_3d_skeleton(self.left_camera.p,
+            self.right_camera.p, self.left_screen_world_joints,
+            self.right_screen_world_joints)
+
         self.render_switches = {
             'camera': True,
             'screen_world_joints': True,
-            'mouse_rotation_handler': True
+            'mouse_rotation_handler': True,
+            'rays': True
         }
 
         self.colors = {
@@ -141,7 +170,7 @@ class Render:
         }
 
         self.front_vectors_size = 0.3
-        self.rays_size = 3
+        self.rays_size = 10
 
         self.last_mouse_pos = pygame.mouse.get_pos()
         self.delta_mouse_pos = (0,0)
@@ -177,7 +206,7 @@ class Render:
         glVertex3fv((0, 0, axis_length))
         glEnd()
 
-    def draw_camera(self, camera):
+    def draw_pinhole_camera(self, camera):
         glLineWidth(1)
         glColor3fv(self.colors['camera'])
 
@@ -326,6 +355,12 @@ class Render:
                 glTranslatef(-0.05, 0, 0)
             if keys_pressed[K_d]:
                 glTranslatef(0.05, 0, 0)
+            if keys_pressed[K_q]:
+                glTranslatef(0, -0.05, 0)
+            if keys_pressed[K_e]:
+                glTranslatef(0, 0.05, 0)
+            if keys_pressed[K_r]:
+                self.render_switches['rays'] = not self.render_switches['rays']
 
             # glRotatef(1, 0, 1, 0)
             # glTranslatef(0, 0, 0.01)
@@ -334,16 +369,17 @@ class Render:
             self.draw_axis_origin()
 
             if self.render_switches['camera']:
-                self.draw_camera(self.left_camera)
-                self.draw_camera(self.right_camera)
-            if self.left_screen_world_joints is not None:
-                self.draw_rays(
-                    self.left_camera, self.left_screen_world_joints)
-                self.draw_skeleton(self.left_screen_world_joints)
-            if self.right_screen_world_joints is not None:
+                self.draw_pinhole_camera(self.left_camera)
+                self.draw_pinhole_camera(self.right_camera)
+            
+            if self.render_switches['rays']:
+                self.draw_rays(self.left_camera, self.left_screen_world_joints)
                 self.draw_rays(
                     self.right_camera, self.right_screen_world_joints)
-                self.draw_skeleton(self.right_screen_world_joints)
+
+            self.draw_skeleton(self.left_screen_world_joints)
+            self.draw_skeleton(self.right_screen_world_joints)
+            self.draw_skeleton(self.skeleton_3d)
 
             pygame.display.flip()
             pygame.time.wait(10)
@@ -398,7 +434,7 @@ left_screen_world_joints = left_camera.get_screen_world_joints(
 left_image = 'left_egocap_renderer_test.jpg'
 
 right_camera = PinholeCamera(
-    x=0, y=1.3, z=0,
+    x=0, y=1, z=0,
     rx=0, ry=0, rz=0,
     horizontal_fov=60,
     vertical_fov=60,
