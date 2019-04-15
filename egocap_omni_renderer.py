@@ -112,7 +112,7 @@ class Util:
 
         da = (b - a).normalize()
         db = (d - c).normalize()
-        dc = c - a
+        dc = (c - a).normalize()
 
         dada = da.dot_product(da)
         dadb = da.dot_product(db)
