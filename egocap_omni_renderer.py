@@ -158,14 +158,12 @@ class Render:
 
         self.colors = {
             'camera': (1, 0.2, 1),
+            'origin': [(1, 0, 0), (0, 0, 1), (0, 1, 0)],
             'bones': [
-                (255,   0,   0), (255,  85,   0), (255, 170,   0),
-                (255, 255,   0), (170, 255,   0), ( 85, 255,   0),
-                (  0, 255,   0), (  0, 255,  85), (  0, 255, 170),
-                (  0, 255, 255), (  0, 170, 255), (  0,  85, 255),
-                (  0,   0, 255), ( 85,   0, 255), (170,   0, 255),
-                (255,   0, 255), (255,   0, 170), (255,   0,  85),
-                (255,   0,   0)],
+                (1, 0, 0),   (1, 1/3, 0), (1, 2/3, 0), (1, 1, 0),   (2/3, 1, 0),
+                (1/3, 1, 0), (0, 1, 0),   (0, 1, 1/3), (0, 1, 2/3), (0, 1, 1), 
+                (0, 2/3, 1), (0, 1/3, 1), (0, 0, 1),   (1/3, 0, 1), (2/3, 0, 1),
+                (1, 0, 1),   (1, 0, 2/3), (1, 0, 1/3), (1, 0, 0)],
             'rays': (0.6, 0.6, 0.6)
         }
 
@@ -181,147 +179,84 @@ class Render:
 
         self.orientation = (0, 0, -1)
 
+    def draw_line(self, a, b, color=None, line_width=None):
+        if color is not None:
+            glColor3fv(color)
+        if line_width is not None:
+            glLineWidth(line_width)
+        glBegin(GL_LINES)
+        glVertex3fv(a)
+        glVertex3fv(b)
+        glEnd()
+
     def draw_axis_origin(self):
-        glLineWidth(4)
         axis_length = 0.3
+        x_color, y_color, y_color = self.colors['origin']
+        line_width = 4
 
-        # X axis
-        glBegin(GL_LINES)
-        glColor3fv((1, 0, 0))
-        glVertex3fv((0, 0, 0))
-        glVertex3fv((axis_length, 0, 0))
-        glEnd()
-        
-        # Y axis
-        glBegin(GL_LINES)
-        glColor3fv((0, 0, 1))
-        glVertex3fv((0, 0, 0))
-        glVertex3fv((0, axis_length, 0))
-        glEnd()
-
-        # Z axis
-        glBegin(GL_LINES)
-        glColor3fv((0, 1, 0))
-        glVertex3fv((0, 0, 0))
-        glVertex3fv((0, 0, axis_length))
-        glEnd()
+        self.draw_line((0, 0, 0), (axis_length, 0, 0), x_color, line_width)
+        self.draw_line((0, 0, 0), (0, axis_length, 0), y_color, line_width)
+        self.draw_line((0, 0, 0), (0, 0, axis_length), y_color, line_width)
 
     def draw_pinhole_camera(self, camera):
-        glLineWidth(1)
-        glColor3fv(self.colors['camera'])
+        camera_color = self.colors['camera']
+        line_width = 1
 
         cpx = camera.p.x
         cpy = camera.p.y
         cpz = camera.p.z
+        cp = (cpx, cpy, cpz)
 
-        half_camera_width = camera.world_screen_width / 2
-        half_camera_height = camera.world_screen_height / 2
+        '''
+        half camera width, half camera height and near
+        '''
+        hcw = camera.world_screen_width / 2
+        hch = camera.world_screen_height / 2
+        n = camera.near
 
-        glBegin(GL_LINES)
-        glVertex3fv((cpx, cpy, cpz))
-        glVertex3fv((
-            cpx - half_camera_width,
-            cpy - half_camera_height,
-            cpz + camera.near))
-        glEnd()
+        self.draw_line(cp, (cpx - hcw, cpy - hch, cpz + n),
+            camera_color, line_width)
+        self.draw_line(cp, (cpx - hcw, cpy + hch, cpz + n),
+            camera_color, line_width)
+        self.draw_line(cp, (cpx + hcw, cpy - hch, cpz + n),
+            camera_color, line_width)
+        self.draw_line(cp, (cpx + hcw, cpy + hch, cpz + n),
+            camera_color, line_width)
 
-        glBegin(GL_LINES)
-        glVertex3fv((cpx, cpy, cpz))
-        glVertex3fv((
-            cpx - half_camera_width,
-            cpy + half_camera_height,
-            cpz + camera.near))
-        glEnd()
-
-        glBegin(GL_LINES)
-        glVertex3fv((cpx, cpy, cpz))
-        glVertex3fv((
-            cpx + half_camera_width,
-            cpy - half_camera_height,
-            cpz + camera.near))
-        glEnd()
-
-        glBegin(GL_LINES)
-        glVertex3fv((cpx, cpy, cpz))
-        glVertex3fv((
-            cpx + half_camera_width,
-            cpy + half_camera_height,
-            cpz + camera.near))
-        glEnd()
-
-        glBegin(GL_LINES)
-        glVertex3fv((
-            cpx - half_camera_width,
-            cpy - half_camera_height,
-            cpz + camera.near))
-        glVertex3fv((
-            cpx - half_camera_width,
-            cpy + half_camera_height,
-            cpz + camera.near))
-        glEnd()
-
-        glBegin(GL_LINES)
-        glVertex3fv((
-            cpx - half_camera_width,
-            cpy + half_camera_height,
-            cpz + camera.near))
-        glVertex3fv((
-            cpx + half_camera_width,
-            cpy + half_camera_height,
-            cpz + camera.near))
-        glEnd()
-
-        glBegin(GL_LINES)
-        glVertex3fv((
-            cpx + half_camera_width,
-            cpy + half_camera_height,
-            cpz + camera.near))
-        glVertex3fv((
-            cpx + half_camera_width,
-            cpy - half_camera_height,
-            cpz + camera.near))
-        glEnd()
-
-        glBegin(GL_LINES)
-        glVertex3fv((
-            cpx + half_camera_width,
-            cpy - half_camera_height,
-            cpz + camera.near))
-        glVertex3fv((
-            cpx - half_camera_width,
-            cpy - half_camera_height,
-            cpz + camera.near))
-        glEnd()
+        self.draw_line((cpx - hcw, cpy - hch, cpz + n),
+            (cpx - hcw, cpy + hch, cpz + n), camera_color, line_width)
+        self.draw_line((cpx - hcw, cpy + hch, cpz + n),
+            (cpx + hcw, cpy + hch, cpz + n), camera_color, line_width)
+        self.draw_line((cpx + hcw, cpy + hch, cpz + n),
+            (cpx + hcw, cpy - hch, cpz + n), camera_color, line_width)
+        self.draw_line((cpx + hcw, cpy - hch, cpz + n),
+            (cpx - hcw, cpy - hch, cpz + n), camera_color, line_width)
 
     def draw_skeleton(self, joints):
-        glLineWidth(1)
+        line_width = 1
 
-        glBegin(GL_LINES)
         for (i, bone) in bones_list.items():
-            glColor3fv(self.colors['bones'][i])
+            bone_color = self.colors['bones'][i]
             if bone[0] in joints and bone[1] in joints:
-                glVertex3fv((
-                    joints[bone[0]].x, joints[bone[0]].y, joints[bone[0]].z))
-                glVertex3fv((
-                    joints[bone[1]].x, joints[bone[1]].y, joints[bone[1]].z))
-        glEnd()
+                self.draw_line(
+                    (joints[bone[0]].x, joints[bone[0]].y, joints[bone[0]].z),
+                    (joints[bone[1]].x, joints[bone[1]].y, joints[bone[1]].z),
+                    bone_color, line_width)
 
     def draw_rays(self, camera, joints):
-        glLineWidth(1)
-        glColor3fv(self.colors['rays'])
+        ray_color = self.colors['rays']
+        line_width = 1
 
         cpx = camera.p.x
         cpy = camera.p.y
         cpz = camera.p.z
 
         for joint in joints.values():
-            glBegin(GL_LINES)
-            glVertex3fv((cpx, cpy, cpz))
-            glVertex3fv((
+            self.draw_line((cpx, cpy, cpz), (
                 joint.x + (joint.x - cpx) * self.rays_size,
                 joint.y + (joint.y - cpy) * self.rays_size,
-                joint.z + (joint.z - cpz) * self.rays_size))
-            glEnd()
+                joint.z + (joint.z - cpz) * self.rays_size),
+                ray_color, line_width)
 
     def mouse_rotation_handler(self):
         current_mouse_pos = pygame.mouse.get_pos()
