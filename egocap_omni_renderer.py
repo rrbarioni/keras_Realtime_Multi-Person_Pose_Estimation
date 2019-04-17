@@ -12,11 +12,18 @@ class Vector2d:
     def __str__(self):
         return '(' + str(self.x) + ', ' + str(self.y) + ')'
 
+    def __sub__(self, other):
+        return Vector2d(self.x - other.x, self.y - other.y)
+
     def __eq__(self, other):
         return ((self.x == other.x) and (self.y == other.y))
         
     def __hash__(self):
         return id(self)
+
+    def squared_distance(self, other):
+        diff = self - other
+        return (diff.x**2) + (diff.y**2)
 
 class Vector3d:
     def __init__(self, x, y, z):
@@ -54,7 +61,7 @@ class Vector3d:
     def magnitude(self):
         return (self.x**2 + self.y**2 + self.z**2) ** (1/2)
 
-    def distance(self, other):
+    def euclidian_distance(self, other):
         return (self - other).magnitude()
 
     def dot_product(self, other):
@@ -103,6 +110,48 @@ class PinholeCamera:
             (key, self.screen_to_world(value))
             for (key,value) in screen_joints.items() })
 
+class OmnidirectionalCamera:
+    def __init__(self, x, y, z, rx, ry, rz, horizontal_fov, vertical_fov, 
+        fx, fy, cx, cy):
+        self.p = Vector3d(x, y, z)
+        self.r = Vector3d(rx, ry, rz)
+
+        self.fx = fx
+        self.fy = fy
+        self.cx = cx
+        self.cy = cy
+
+        # only used on render
+        self.horizontal_fov = horizontal_fov
+        self.vertical_fov = vertical_fov
+        self.near = 1
+        self.world_screen_width =  2 * \
+            math.tan(math.radians(self.horizontal_fov / 2)) * self.near
+        self.world_screen_height = 2 * \
+            math.tan(math.radians(self.vertical_fov / 2)) * self.near
+
+    def omni_z_distortion(self, screen_joint):
+        screen_joint_normalized = Vector2d(
+            (screen_joint.x / self.cx) - 1.0,
+            (screen_joint.y / self.cy) - 1.0)
+        d = screen_joint_normalized.squared_distance(Vector2d(0, 0))
+
+        sqrt_2 = 2 ** (1/2)
+        d = d / (3 * sqrt_2)
+
+        return d
+
+    def screen_to_world(self, screen_joint):
+        return Vector3d(
+            self.p.x + (screen_joint.x - self.cx) / self.fx,
+            self.p.y + (screen_joint.y - self.cy) / self.fy,
+            self.p.z + self.near + self.omni_z_distortion(screen_joint))
+
+    def get_screen_world_joints(self, screen_joints):
+        return dict({
+            (key, self.screen_to_world(value))
+            for (key,value) in screen_joints.items() })
+
 class Util:
     @staticmethod
     def nearest_point_two_lines(a, b, c, d):
@@ -145,9 +194,9 @@ class Render:
         self.left_screen_world_joints = left_screen_world_joints
         self.right_screen_world_joints = right_screen_world_joints
 
-        self.skeleton_3d = Util.get_3d_skeleton(self.left_camera.p,
-            self.right_camera.p, self.left_screen_world_joints,
-            self.right_screen_world_joints)
+        self.skeleton_3d = Util.get_3d_skeleton(
+            self.left_camera.p, self.right_camera.p,
+            self.left_screen_world_joints, self.right_screen_world_joints)
 
         self.render_switches = {
             'camera': True,
@@ -231,6 +280,10 @@ class Render:
             (cpx + hcw, cpy - hch, cpz + n), camera_color, line_width)
         self.draw_line((cpx + hcw, cpy - hch, cpz + n),
             (cpx - hcw, cpy - hch, cpz + n), camera_color, line_width)
+
+    def draw_omnidirectional_camera(self, camera):
+
+        return
 
     def draw_skeleton(self, joints):
         line_width = 1
@@ -339,7 +392,7 @@ bones_list = {
     15: ('LKnee',     'LAnkle'),
     16: ('LAnkle',    'LToe') }
 
-left_camera = PinholeCamera(
+left_camera = OmnidirectionalCamera(
     x=0, y=0, z=0,
     rx=0, ry=0, rz=0,
     horizontal_fov=60,
@@ -368,7 +421,7 @@ left_screen_world_joints = left_camera.get_screen_world_joints(
     left_screen_joints)
 left_image = 'left_egocap_renderer_test.jpg'
 
-right_camera = PinholeCamera(
+right_camera = OmnidirectionalCamera(
     x=0, y=1, z=0,
     rx=0, ry=0, rz=0,
     horizontal_fov=60,
