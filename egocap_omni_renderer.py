@@ -145,7 +145,7 @@ class OmnidirectionalCamera:
         return Vector3d(
             self.p.x + (screen_joint.x - self.cx) / self.fx,
             self.p.y + (screen_joint.y - self.cy) / self.fy,
-            self.p.z + self.near + self.omni_z_distortion(screen_joint))
+            self.p.z + self.near - self.omni_z_distortion(screen_joint))
 
     def get_screen_world_joints(self, screen_joints):
         return dict({
