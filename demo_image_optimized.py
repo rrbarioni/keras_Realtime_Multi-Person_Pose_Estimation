@@ -44,8 +44,8 @@ elapsed_time = {}
 
 input_image = 'images/porteiros.jpg'
 output = 'result_optimized_cmu_resnet50.png'
-keras_weights_file = 'training/results/cmu_1stage_resnet50_res3d/weights.h5'
-keras_model_file = 'training/results/cmu_1stage_resnet50_res3d/model.h5'
+keras_weights_file = 'training/results/cmu/weights.h5'
+keras_model_file = 'training/results/cmu/model.h5'
 
 # model = get_testing_model()
 # model.load_weights(keras_weights_file)

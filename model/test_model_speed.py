@@ -1,17 +1,25 @@
 import numpy as np
-import time
+import os
+# import time
+# import cProfile
 
 eval_testing_model = True
+cpu = False
+model_arch = 'cmu'
 
 input_size = 368
 num_keypoints = 19
 num_pafs = 38
 
+if cpu:
+    os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
 if eval_testing_model:
-    from model_cmu_resnet50 import get_testing_model as get_model
+    exec('from model_%s import get_testing_model as get_model' % model_arch)
     model = get_model()
 else:
-    from model_cmu_resnet50 import get_training_model as get_model
+    exec('from model_%s import get_training_model as get_model' % model_arch)
     model = get_model(5e-4)
 
 model.summary()
@@ -27,9 +35,23 @@ else:
 
     model.predict([zeros, vec_zeros, heat_zeros])
 
+if eval_testing_model:
+    exec('%timeit -n 10 model.predict(zeros)')
+else:
+    exec('%timeit -n 10 model.predict([zeros, vec_zeros, heat_zeros])')
+
+
+'''
+if eval_testing_model:
+    cProfile.run('model.predict(zeros)')
+else:
+    cProfile.run('model.predict([zeros, vec_zeros, heat_zeros])')
+'''
+
+'''
 times = np.array([])
 for i in range(10):
-    t0 = time.time()
+    # t0 = time.time()
     
     if eval_testing_model:
         model.predict(zeros)
@@ -41,3 +63,4 @@ for i in range(10):
     print(curr_time)
 
 print('mean: %s' % np.mean(times))
+'''

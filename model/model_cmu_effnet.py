@@ -1,12 +1,11 @@
 from keras.models import Model
+from keras.layers import Input, Activation, LeakyReLU, BatchNormalization, Lambda
 from keras.layers.merge import Concatenate
-from keras.layers import Activation, Input, Lambda
-from keras.layers.convolutional import Conv2D
+from keras.layers.convolutional import Conv2D, DepthwiseConv2D
 from keras.layers.pooling import MaxPooling2D, AveragePooling2D
 from keras.layers.merge import Multiply
 from keras.regularizers import l2
 from keras.initializers import random_normal, constant
-
 
 def relu(x): return Activation('relu')(x)
 
@@ -29,47 +28,38 @@ def pooling(x, ks, st, name):
     
     return x
 
+def effnet_block(x, weight_decay):
+    def get_post(x_in):
+        x = LeakyReLU()(x_in)
+        x = BatchNormalization()(x)
 
-def vgg_block(x, weight_decay):
-    # Block 1
-    x = conv(x, 64, 3, "conv1_1", (weight_decay, 0))
-    x = relu(x)
-    x = conv(x, 64, 3, "conv1_2", (weight_decay, 0))
-    x = relu(x)
-    x = pooling(x, 2, 2, "pool1_1")
+        return x
 
-    # Block 2
-    x = conv(x, 128, 3, "conv2_1", (weight_decay, 0))
-    x = relu(x)
-    x = conv(x, 128, 3, "conv2_2", (weight_decay, 0))
-    x = relu(x)
-    x = pooling(x, 2, 2, "pool2_1")
+    def get_block(x_in, ch_in, ch_out):
+        x = Conv2D(ch_in, kernel_size=(1, 1), padding='same',
+            use_bias=False)(x_in)
+        x = get_post(x)
 
-    # Block 3
-    x = conv(x, 256, 3, "conv3_1", (weight_decay, 0))
-    x = relu(x)
-    x = conv(x, 256, 3, "conv3_2", (weight_decay, 0))
-    x = relu(x)
-    x = conv(x, 256, 3, "conv3_3", (weight_decay, 0))
-    x = relu(x)
-    x = conv(x, 256, 3, "conv3_4", (weight_decay, 0))
-    x = relu(x)
-    x = pooling(x, 2, 2, "pool3_1")
+        x = DepthwiseConv2D(kernel_size=(1, 3), padding='same',
+            use_bias=False)(x)
+        x = get_post(x)
+        x = MaxPooling2D(pool_size=(2, 1), strides=(2, 1))(x)
 
-    # Block 4
-    x = conv(x, 512, 3, "conv4_1", (weight_decay, 0))
-    x = relu(x)
-    x = conv(x, 512, 3, "conv4_2", (weight_decay, 0))
-    x = relu(x)
+        x = DepthwiseConv2D(kernel_size=(3, 1), padding='same',
+            use_bias=False)(x)
+        x = get_post(x)
 
-    # Additional non vgg layers
-    x = conv(x, 256, 3, "conv4_3_CPM", (weight_decay, 0))
-    x = relu(x)
-    x = conv(x, 128, 3, "conv4_4_CPM", (weight_decay, 0))
-    x = relu(x)
+        x = Conv2D(ch_out, kernel_size=(2, 1), strides=(1, 2), padding='same',
+            use_bias=False)(x)
+        x = get_post(x)
+
+        return x
+
+    x = get_block(x, 32, 64)
+    x = get_block(x, 64, 128)
+    x = get_block(x, 128, 256)
 
     return x
-
 
 def stage1_block(x, num_p, branch, weight_decay):
     # Block 1
@@ -115,7 +105,6 @@ def apply_mask(x, mask1, mask2, num_p, stage, branch):
         w = Multiply(name=w_name)([x, mask2])  # vec_heat
     return w
 
-
 def get_training_model(weight_decay):
     stages = 6
     np_branch1 = 38
@@ -141,8 +130,8 @@ def get_training_model(weight_decay):
 
     img_normalized = Lambda(lambda x: x / 256 - 0.5)(img_input) # [-0.5, 0.5]
 
-    # VGG
-    stage0_out = vgg_block(img_normalized, weight_decay)
+    # Effnet
+    stage0_out = effnet_block(img_normalized, weight_decay)
 
     # stage 1 - branch 1 (PAF)
     stage1_branch1_out = stage1_block(stage0_out, np_branch1, 1, weight_decay)
@@ -177,7 +166,6 @@ def get_training_model(weight_decay):
 
     return model
 
-
 def get_testing_model():
     stages = 6
     np_branch1 = 38
@@ -190,8 +178,8 @@ def get_testing_model():
 
     img_normalized = Lambda(lambda x: x / 256 - 0.5)(img_input) # [-0.5, 0.5]
 
-    # VGG
-    stage0_out = vgg_block(img_normalized, None)
+    # Effnet
+    stage0_out = effnet_block(img_normalized, None)
 
     # stage 1 - branch 1 (PAF)
     stage1_branch1_out = stage1_block(stage0_out, np_branch1, 1, None)
