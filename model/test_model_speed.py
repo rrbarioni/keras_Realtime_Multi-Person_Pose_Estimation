@@ -1,13 +1,13 @@
 import numpy as np
 import os
-# import time
+import time
 # import cProfile
 
 eval_testing_model = True
 cpu = False
-model_arch = 'cmu'
+model_arch = 'cmu_mobilenet'
 
-input_size = 368
+input_size = 224
 num_keypoints = 19
 num_pafs = 38
 
@@ -35,12 +35,6 @@ else:
 
     model.predict([zeros, vec_zeros, heat_zeros])
 
-if eval_testing_model:
-    exec('%timeit -n 10 model.predict(zeros)')
-else:
-    exec('%timeit -n 10 model.predict([zeros, vec_zeros, heat_zeros])')
-
-
 '''
 if eval_testing_model:
     cProfile.run('model.predict(zeros)')
@@ -48,10 +42,10 @@ else:
     cProfile.run('model.predict([zeros, vec_zeros, heat_zeros])')
 '''
 
-'''
+
 times = np.array([])
 for i in range(10):
-    # t0 = time.time()
+    t0 = time.time()
     
     if eval_testing_model:
         model.predict(zeros)
@@ -63,4 +57,4 @@ for i in range(10):
     print(curr_time)
 
 print('mean: %s' % np.mean(times))
-'''
+

@@ -53,14 +53,15 @@ def get_l1_list_per_layer(model):
 l1_list_per_layer = get_l1_list_per_layer(model)
 sorted_l1_list_per_layer = l1_list_per_layer[l1_list_per_layer[:,2].argsort()]
 
-prune_l1_005_list = np.array([
-    f for f in sorted_l1_list_per_layer if f[2] < 0.05])
-prune_l1_005_by_layer = {
-    int(l): list(prune_l1_005_list[prune_l1_005_list[:,0] == l][:,1].astype(int))
-    for l in np.unique(prune_l1_005_list[:,0]) }
+prune_l1_5percent_list = sorted_l1_list_per_layer[
+    :int(len(sorted_l1_list_per_layer) * 0.05)]
+prune_l1_5percent_by_layer = {
+    int(l): list(prune_l1_5percent_list[prune_l1_5percent_list[:,0] == l][:,1]
+        .astype(int))
+    for l in np.unique(prune_l1_5percent_list[:,0]) }
 
 surgeon = Surgeon(model)
-for (l, fl) in prune_l1_005_by_layer.items():
+for (l, fl) in prune_l1_5percent_by_layer.items():
     surgeon.add_job('delete_channels', model.layers[l],
         channels=fl)
 surgeon.operate()
